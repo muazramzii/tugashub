@@ -1,0 +1,51 @@
+<%- include('partials/head') %>
+<main class="container page page-narrow">
+  <div class="page-head">
+    <div>
+      <h1>Team</h1>
+      <p class="muted"><%= members.length %> of <%= formatLimit(plan.maxMembers) %> members on the <%= plan.name %> plan</p>
+    </div>
+  </div>
+
+  <section class="card">
+    <h2>Invite people</h2>
+    <% if (members.length >= plan.maxMembers) { %>
+      <p>Your workspace is full. <a href="/billing">Upgrade to Pro</a> to add more members.</p>
+    <% } else { %>
+      <p class="muted">Anyone with this link can create an account and join <strong><%= workspace.name %></strong>.</p>
+      <div class="copy-row">
+        <input id="invite-url" readonly value="<%= inviteUrl %>" aria-label="Invite link">
+        <button class="btn btn-primary" type="button" data-copy="#invite-url">Copy link</button>
+      </div>
+    <% } %>
+    <% if (user.role === 'owner') { %>
+    <form method="post" action="/team/invite/reset" data-confirm="Create a new invite link? The current link will stop working.">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <button class="link-btn" type="submit">Reset invite link</button>
+    </form>
+    <% } %>
+  </section>
+
+  <section class="card">
+    <h2>Members</h2>
+    <ul class="member-list">
+      <% for (const m of members) { %>
+      <li>
+        <span class="avatar avatar-lg"><%= initials(m.name) %></span>
+        <span class="member-main">
+          <span class="member-name"><%= m.name %><% if (m.id === user.id) { %> <span class="muted">(you)</span><% } %></span>
+          <span class="small muted"><%= m.email %> · <%= m.open_tasks %> open task<%= m.open_tasks === 1 ? '' : 's' %></span>
+        </span>
+        <span class="role role-<%= m.role %>"><%= m.role === 'owner' ? 'Owner' : 'Member' %></span>
+        <% if (user.role === 'owner' && m.role !== 'owner') { %>
+        <form method="post" action="/team/<%= m.id %>/remove" data-confirm="Remove <%= m.name %> from the workspace? Their tasks will become unassigned.">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <button class="btn btn-ghost btn-sm" type="submit">Remove</button>
+        </form>
+        <% } %>
+      </li>
+      <% } %>
+    </ul>
+  </section>
+</main>
+<%- include('partials/foot') %>

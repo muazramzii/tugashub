@@ -1,0 +1,7 @@
+<%- include('partials/head') %>
+<main class="container page page-narrow error-page">
+  <h1><%= title %></h1>
+  <p class="muted"><%= message %></p>
+  <a class="btn btn-primary" href="<%= user ? '/dashboard' : '/' %>">Go back home</a>
+</main>
+<%- include('partials/foot') %>

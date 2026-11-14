@@ -1,0 +1,104 @@
+<%- include('partials/head') %>
+<main class="container page page-wide">
+  <div class="page-head">
+    <div>
+      <a class="back" href="/dashboard">← Projects</a>
+      <h1 class="project-title" style="--project: <%= project.color %>"><%= project.name %></h1>
+      <% if (project.description) { %><p class="muted"><%= project.description %></p><% } %>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-primary" type="button" data-open="new-task">Add task</button>
+      <details class="menu">
+        <summary class="btn btn-ghost">Project settings</summary>
+        <div class="menu-panel card">
+          <form method="post" action="/projects/<%= project.id %>/edit" class="stack">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <label>Name <input name="name" required maxlength="80" value="<%= project.name %>"></label>
+            <label>Description <input name="description" maxlength="500" value="<%= project.description %>"></label>
+            <button class="btn btn-primary btn-sm" type="submit">Save</button>
+          </form>
+          <% if (user.role === 'owner') { %>
+          <form method="post" action="/projects/<%= project.id %>/delete" data-confirm="Delete this project and all of its tasks? This cannot be undone.">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <button class="btn btn-danger btn-sm" type="submit">Delete project</button>
+          </form>
+          <% } %>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="board" data-csrf="<%= csrf %>">
+    <% for (const status of ['todo', 'doing', 'done']) { const list = columns[status]; %>
+    <section class="column" data-status="<%= status %>" aria-label="<%= labels.status[status] %>">
+      <header class="column-head">
+        <h2><%= labels.status[status] %></h2>
+        <span class="count"><%= list.length %></span>
+      </header>
+      <ol class="cards">
+        <% for (const t of list) { %>
+        <li class="task-card <%= t.status === 'done' ? 'is-done' : '' %>" draggable="true" data-id="<%= t.id %>">
+          <a class="task-link" draggable="false" href="/tasks/<%= t.id %>/edit">
+            <span class="task-top">
+              <span class="chip chip-<%= t.priority %>"><%= labels.priority[t.priority] %></span>
+              <% if (t.due_date) { %><span class="due <%= t.is_overdue ? 'due-late' : '' %>"><%= t.is_overdue ? 'Late · ' : '' %><%= fmtDate(t.due_date) %></span><% } %>
+            </span>
+            <span class="task-title"><%= t.title %></span>
+            <% if (t.description) { %><span class="task-desc"><%= t.description %></span><% } %>
+            <span class="task-foot">
+              <% if (t.assignee_name) { %>
+                <span class="avatar" title="<%= t.assignee_name %>"><%= initials(t.assignee_name) %></span>
+                <span class="small muted"><%= t.assignee_name %></span>
+              <% } else { %>
+                <span class="small muted">Unassigned</span>
+              <% } %>
+            </span>
+          </a>
+        </li>
+        <% } %>
+      </ol>
+      <button class="add-inline" type="button" data-open="new-task" data-status="<%= status %>">+ Add task</button>
+    </section>
+    <% } %>
+  </div>
+  <p class="muted small board-hint">Drag cards between columns to change their status. Click a card to edit it.</p>
+</main>
+
+<dialog id="new-task" class="dialog">
+  <form method="post" action="/projects/<%= project.id %>/tasks" class="stack">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="dialog-head">
+      <h2>New task</h2>
+      <button class="btn btn-ghost btn-sm" type="button" data-close>Cancel</button>
+    </div>
+    <label>Title <input name="title" required maxlength="200"></label>
+    <label>Description <span class="optional">optional</span>
+      <textarea name="description" rows="3" maxlength="2000"></textarea>
+    </label>
+    <div class="form-row">
+      <label>Column
+        <select name="status">
+          <% for (const s of ['todo', 'doing', 'done']) { %><option value="<%= s %>"><%= labels.status[s] %></option><% } %>
+        </select>
+      </label>
+      <label>Priority
+        <select name="priority">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Assignee
+        <select name="assignee_id">
+          <option value="">Unassigned</option>
+          <% for (const m of members) { %><option value="<%= m.id %>"><%= m.name %></option><% } %>
+        </select>
+      </label>
+      <label>Due date <input name="due_date" type="date"></label>
+    </div>
+    <button class="btn btn-primary" type="submit">Create task</button>
+  </form>
+</dialog>
+<%- include('partials/foot') %>

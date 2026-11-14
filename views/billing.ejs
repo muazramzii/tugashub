@@ -1,0 +1,65 @@
+<%- include('partials/head') %>
+<main class="container page page-narrow">
+  <h1>Billing</h1>
+  <p class="muted">Payments are simulated in this demo. No card is charged.</p>
+
+  <section class="card">
+    <h2>Usage</h2>
+    <% const rows = [['Projects', usage.projects, plan.maxProjects], ['Members', usage.members, plan.maxMembers]]; %>
+    <% for (const [label, used, max] of rows) { const pct = max === Infinity ? 0 : Math.min(100, Math.round(used / max * 100)); %>
+    <div class="usage">
+      <div class="usage-label"><span><%= label %></span><span><%= used %> / <%= formatLimit(max) %></span></div>
+      <% if (max !== Infinity) { %>
+      <span class="progress <%= pct >= 100 ? 'progress-full' : '' %>"><span style="width: <%= pct %>%"></span></span>
+      <% } %>
+    </div>
+    <% } %>
+  </section>
+
+  <div class="plan-grid">
+    <% for (const p of Object.values(plans)) { const current = workspace.plan === p.key; %>
+    <div class="plan-card <%= current ? 'plan-card-current' : '' %>">
+      <div class="plan-card-head">
+        <h3><%= p.name %></h3>
+        <% if (current) { %><span class="plan-badge plan-<%= p.key %>">Current plan</span><% } %>
+      </div>
+      <p class="price">RM<%= p.price %><span>/month</span></p>
+      <ul class="checklist">
+        <% for (const f of p.features) { %><li><%= f %></li><% } %>
+      </ul>
+      <% if (!current && user.role === 'owner') { %>
+      <form method="post" action="/billing/<%= p.key === 'pro' ? 'upgrade' : 'downgrade' %>"
+            data-confirm="<%= p.key === 'pro' ? 'Upgrade to Pro for RM' + p.price + '/month? (Demo: no real charge.)' : 'Move to the Free plan?' %>">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <button class="btn <%= p.key === 'pro' ? 'btn-primary' : 'btn-ghost' %> btn-block" type="submit">
+          <%= p.key === 'pro' ? 'Upgrade to Pro' : 'Downgrade to Free' %>
+        </button>
+      </form>
+      <% } else if (!current) { %>
+      <p class="small muted">Ask the workspace owner to change plans.</p>
+      <% } %>
+    </div>
+    <% } %>
+  </div>
+
+  <section class="card">
+    <h2>History</h2>
+    <% if (history.length === 0) { %>
+      <p class="muted small">No plan changes yet.</p>
+    <% } else { %>
+    <table class="table">
+      <thead><tr><th>Date</th><th>Change</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        <% for (const h of history) { %>
+        <tr>
+          <td><%= fmtDate(h.created_at) %></td>
+          <td><%= h.action === 'upgrade' ? 'Upgraded to Pro' : 'Moved to Free' %></td>
+          <td class="num">RM<%= h.amount.toFixed(2) %></td>
+        </tr>
+        <% } %>
+      </tbody>
+    </table>
+    <% } %>
+  </section>
+</main>
+<%- include('partials/foot') %>

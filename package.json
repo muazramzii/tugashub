@@ -1,0 +1,21 @@
+{
+  "name": "tugashub",
+  "version": "1.0.0",
+  "description": "TugasHub - a multi-tenant task and project management SaaS (Node + Express + SQLite)",
+  "main": "src/server.js",
+  "private": true,
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/server.js",
+    "seed": "node --disable-warning=ExperimentalWarning src/seed.js"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "bcryptjs": "2.4.3",
+    "cookie-session": "2.1.1",
+    "ejs": "3.1.10",
+    "express": "4.22.3"
+  }
+}

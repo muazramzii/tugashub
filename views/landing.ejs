@@ -1,0 +1,80 @@
+<%- include('partials/head') %>
+<header class="site-header">
+  <div class="container site-header-inner">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><%= appName %></a>
+    <nav class="site-nav">
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="/login">Log in</a>
+      <a class="btn btn-primary btn-sm" href="/signup">Start free</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero container">
+    <div class="hero-copy">
+      <p class="eyebrow">For student teams and small businesses</p>
+      <h1>Every task your team owes, on one board.</h1>
+      <p class="lead">Create a workspace, invite your team with a link, and move work from <em>To do</em> to <em>Done</em>. Free for up to 3 people.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="/signup">Create a free workspace</a>
+        <a class="btn btn-ghost" href="/login">I already have an account</a>
+      </div>
+    </div>
+
+    <div class="hero-board" aria-hidden="true">
+      <div class="mini-col">
+        <div class="mini-head">To do <span>2</span></div>
+        <div class="mini-card"><span class="chip chip-high">High</span>Set up hosting<small>Farid · 20 Nov</small></div>
+        <div class="mini-card"><span class="chip chip-low">Low</span>Test on mobile<small>Unassigned</small></div>
+      </div>
+      <div class="mini-col">
+        <div class="mini-head">In progress <span>1</span></div>
+        <div class="mini-card"><span class="chip chip-medium">Medium</span>Draw ERD diagram<small>Mei · 18 Nov</small></div>
+      </div>
+      <div class="mini-col">
+        <div class="mini-head">Done <span>2</span></div>
+        <div class="mini-card is-done">Write chapter 1<small>Aina</small></div>
+        <div class="mini-card is-done">Pricing section<small>Mei</small></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" class="features container">
+    <div class="feature">
+      <h3>Kanban boards</h3>
+      <p>Drag tasks between To do, In progress and Done. Set priority, due date and who owns it.</p>
+    </div>
+    <div class="feature">
+      <h3>Invite by link</h3>
+      <p>Share one invite link and your team joins the workspace. Reset it any time to lock the door.</p>
+    </div>
+    <div class="feature">
+      <h3>See what's late</h3>
+      <p>The dashboard shows overdue work, each project's progress and the tasks assigned to you.</p>
+    </div>
+  </section>
+
+  <section id="pricing" class="pricing container">
+    <h2>Pricing</h2>
+    <p class="muted">Start free. Upgrade when your team grows.</p>
+    <div class="plan-grid">
+      <% for (const p of Object.values(PLANS)) { %>
+      <div class="plan-card <%= p.key === 'pro' ? 'plan-card-featured' : '' %>">
+        <h3><%= p.name %></h3>
+        <p class="price"><% if (p.price) { %>RM<%= p.price %><span>/month</span><% } else { %>RM0<span>/month</span><% } %></p>
+        <ul class="checklist">
+          <% for (const f of p.features) { %><li><%= f %></li><% } %>
+        </ul>
+        <a class="btn <%= p.key === 'pro' ? 'btn-primary' : 'btn-ghost' %> btn-block" href="/signup">Get started</a>
+      </div>
+      <% } %>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container">© <%= new Date().getFullYear() %> <%= appName %>. Built as a UTHM mini project.</div>
+</footer>
+<%- include('partials/foot') %>

@@ -1,0 +1,38 @@
+<%- include('../partials/head') %>
+<main class="auth">
+  <a class="brand auth-brand" href="/"><span class="brand-mark" aria-hidden="true"></span><%= appName %></a>
+  <div class="card auth-card">
+    <% if (invite) { %>
+      <h1>Join <%= invite.name %></h1>
+      <p class="muted">You've been invited to this workspace. Create your account to join.</p>
+    <% } else { %>
+      <h1>Create your workspace</h1>
+      <p class="muted">Free for up to 3 projects and 3 members. No card needed.</p>
+    <% } %>
+
+    <% if (error) { %><div class="alert alert-error" role="alert"><%= error %></div><% } %>
+
+    <form method="post" action="/signup" class="stack">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <input type="hidden" name="invite" value="<%= inviteCode %>">
+      <label>Your name
+        <input name="name" required maxlength="80" autocomplete="name" value="<%= values.name || '' %>">
+      </label>
+      <label>Email
+        <input name="email" type="email" required autocomplete="email" value="<%= values.email || '' %>">
+      </label>
+      <label>Password
+        <input name="password" type="password" required minlength="8" autocomplete="new-password">
+        <span class="hint">At least 8 characters.</span>
+      </label>
+      <% if (!invite) { %>
+      <label>Workspace name
+        <input name="workspace" required maxlength="80" placeholder="e.g. FSKTM Group 4" value="<%= values.workspace || '' %>">
+      </label>
+      <% } %>
+      <button class="btn btn-primary btn-block" type="submit"><%= invite ? 'Join workspace' : 'Create workspace' %></button>
+    </form>
+  </div>
+  <p class="auth-switch">Already have an account? <a href="/login">Log in</a></p>
+</main>
+<%- include('../partials/foot') %>

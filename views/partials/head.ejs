@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · <%= appName %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<% if (user) { %>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="/dashboard"><span class="brand-mark" aria-hidden="true"></span><%= appName %></a>
+    <nav class="mainnav" aria-label="Main">
+      <a href="/dashboard" class="<%= path === '/dashboard' || path.startsWith('/projects') || path.startsWith('/tasks') ? 'active' : '' %>">Projects</a>
+      <a href="/team" class="<%= path === '/team' ? 'active' : '' %>">Team</a>
+      <a href="/billing" class="<%= path === '/billing' ? 'active' : '' %>">Billing</a>
+      <a href="/settings" class="<%= path === '/settings' ? 'active' : '' %>">Settings</a>
+    </nav>
+    <div class="account">
+      <span class="ws-name" title="Workspace"><%= workspace.name %></span>
+      <span class="plan-badge plan-<%= workspace.plan %>"><%= plan.name %></span>
+      <form method="post" action="/logout">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <button class="btn btn-ghost btn-sm" type="submit">Log out</button>
+      </form>
+    </div>
+  </div>
+</header>
+<% } %>
+<% if (flash) { %>
+<div class="flash flash-<%= flash.type %>" role="status"><div class="flash-inner"><%= flash.message %></div></div>
+<% } %>

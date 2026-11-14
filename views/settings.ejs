@@ -1,0 +1,38 @@
+<%- include('partials/head') %>
+<main class="container page page-narrow">
+  <h1>Settings</h1>
+
+  <section class="card">
+    <h2>Profile</h2>
+    <form method="post" action="/settings/profile" class="stack">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label>Name <input name="name" required maxlength="80" value="<%= user.name %>"></label>
+      <label>Email <input value="<%= user.email %>" disabled></label>
+      <button class="btn btn-primary btn-sm" type="submit">Save profile</button>
+    </form>
+  </section>
+
+  <% if (user.role === 'owner') { %>
+  <section class="card">
+    <h2>Workspace</h2>
+    <form method="post" action="/settings/workspace" class="stack">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label>Workspace name <input name="name" required maxlength="80" value="<%= workspace.name %>"></label>
+      <button class="btn btn-primary btn-sm" type="submit">Rename workspace</button>
+    </form>
+  </section>
+  <% } %>
+
+  <section class="card">
+    <h2>Change password</h2>
+    <form method="post" action="/settings/password" class="stack">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label>Current password <input name="current" type="password" required autocomplete="current-password"></label>
+      <label>New password <input name="next" type="password" required minlength="8" autocomplete="new-password">
+        <span class="hint">At least 8 characters.</span>
+      </label>
+      <button class="btn btn-primary btn-sm" type="submit">Change password</button>
+    </form>
+  </section>
+</main>
+<%- include('partials/foot') %>

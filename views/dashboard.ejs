@@ -1,0 +1,99 @@
+<%- include('partials/head') %>
+<main class="container page">
+  <div class="page-head">
+    <div>
+      <h1>Good to see you, <%= user.name.split(' ')[0] %></h1>
+      <p class="muted"><%= workspace.name %></p>
+    </div>
+  </div>
+
+  <section class="stats" aria-label="Workspace summary">
+    <div class="stat"><span class="stat-label">Open tasks</span><span class="stat-value"><%= stats.total - stats.done %></span></div>
+    <div class="stat"><span class="stat-label">In progress</span><span class="stat-value"><%= stats.doing %></span></div>
+    <div class="stat"><span class="stat-label">Completed</span><span class="stat-value"><%= stats.done %></span></div>
+    <div class="stat <%= stats.overdue ? 'stat-warn' : '' %>"><span class="stat-label">Overdue</span><span class="stat-value"><%= stats.overdue %></span></div>
+  </section>
+
+  <div class="dash-grid">
+    <section>
+      <div class="section-head">
+        <h2>Projects</h2>
+        <span class="muted small"><%= projects.length %> of <%= formatLimit(plan.maxProjects) %> on <%= plan.name %></span>
+      </div>
+
+      <% if (projects.length === 0) { %>
+        <div class="empty">
+          <p><strong>No projects yet.</strong> A project holds a board of tasks, like "Final report" or "Website launch".</p>
+        </div>
+      <% } %>
+
+      <div class="project-grid">
+        <% for (const p of projects) { const pct = p.total ? Math.round(p.done / p.total * 100) : 0; %>
+        <a class="project-card" href="/projects/<%= p.id %>" style="--project: <%= p.color %>">
+          <span class="project-name"><%= p.name %></span>
+          <% if (p.description) { %><span class="project-desc"><%= p.description %></span><% } %>
+          <span class="progress" role="img" aria-label="<%= pct %>% complete"><span style="width: <%= pct %>%"></span></span>
+          <span class="project-meta"><%= p.done %>/<%= p.total %> tasks done · <%= pct %>%</span>
+        </a>
+        <% } %>
+      </div>
+
+      <% if (projects.length < plan.maxProjects) { %>
+      <details class="card new-project" <%= projects.length === 0 ? 'open' : '' %>>
+        <summary>New project</summary>
+        <form method="post" action="/projects" class="stack">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <label>Name <input name="name" required maxlength="80" placeholder="e.g. Final report"></label>
+          <label>Description <span class="optional">optional</span>
+            <input name="description" maxlength="500">
+          </label>
+          <fieldset class="swatches">
+            <legend>Colour</legend>
+            <% colors.forEach((c, i) => { %>
+              <label class="swatch" style="--c: <%= c %>">
+                <input type="radio" name="color" value="<%= c %>" <%= i === 0 ? 'checked' : '' %>>
+                <span class="sr-only">Colour <%= i + 1 %></span>
+              </label>
+            <% }) %>
+          </fieldset>
+          <button class="btn btn-primary" type="submit">Create project</button>
+        </form>
+      </details>
+      <% } else { %>
+      <div class="upsell">
+        <p>You've used all <%= plan.maxProjects %> projects on the Free plan.</p>
+        <a class="btn btn-primary btn-sm" href="/billing">Upgrade to Pro</a>
+      </div>
+      <% } %>
+    </section>
+
+    <aside>
+      <div class="section-head"><h2>Assigned to you</h2></div>
+      <% if (myTasks.length === 0) { %>
+        <p class="muted small">Nothing assigned to you right now.</p>
+      <% } else { %>
+      <ul class="task-list">
+        <% for (const t of myTasks) { %>
+        <li>
+          <a href="/projects/<%= t.project_id %>" class="task-row">
+            <span class="dot" style="background: <%= t.project_color %>" aria-hidden="true"></span>
+            <span class="task-row-main">
+              <span class="task-row-title"><%= t.title %></span>
+              <span class="task-row-meta"><%= t.project_name %> · <%= labels.status[t.status] %></span>
+            </span>
+            <% if (t.due_date) { %><span class="due <%= t.is_overdue ? 'due-late' : '' %>"><%= fmtDate(t.due_date) %></span><% } %>
+          </a>
+        </li>
+        <% } %>
+      </ul>
+      <% } %>
+
+      <div class="card side-card">
+        <h3>Team</h3>
+        <p class="muted small"><%= members %> of <%= formatLimit(plan.maxMembers) %> members</p>
+        <a class="btn btn-ghost btn-sm" href="/team">Invite people</a>
+      </div>
+    </aside>
+  </div>
+</main>
+<%- include('partials/foot') %>
