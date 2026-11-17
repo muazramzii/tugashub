@@ -1,0 +1,19 @@
+<%- include('partials/head') %>
+<main class="page page-narrow">
+  <div class="card upgrade-card">
+    <span class="upgrade-icon" aria-hidden="true"><%- icon('lock', 22) %></span>
+    <% if (feature === 'reports') { %>
+      <h1>Reports are a Pro feature</h1>
+      <p class="muted">See tasks completed per week, each member's workload, open work by priority and project health, all in one place.</p>
+    <% } else { %>
+      <h1>CSV export is a Pro feature</h1>
+      <p class="muted">Download any filtered task list as a spreadsheet for reports, grading or backups.</p>
+    <% } %>
+    <% if (can.manageBilling(user)) { %>
+      <a class="btn btn-primary" href="/billing">See Pro plan · RM<%= PLANS.pro.price %>/month</a>
+    <% } else { %>
+      <p class="small">Ask your workspace owner to upgrade to Pro.</p>
+    <% } %>
+  </div>
+</main>
+<%- include('partials/foot') %>

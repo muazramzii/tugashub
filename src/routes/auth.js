@@ -4,8 +4,11 @@ const bcrypt = require('bcryptjs');
 const { db, tx } = require('../db');
 const { planFor } = require('../plans');
 const { setFlash } = require('../middleware');
+const { logActivity } = require('../services/activity');
 
 const router = express.Router();
+const DEFAULT_LABELS = [['Bug', '#e34948'], ['Design', '#e87ba4'], ['Docs', '#2a78d6'], ['Research', '#6250d6']];
+const insertLabel = db.prepare('INSERT INTO labels (workspace_id, name, color) VALUES (?, ?, ?)');
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const workspaceByInvite = db.prepare('SELECT * FROM workspaces WHERE invite_code = ?');
@@ -58,10 +61,15 @@ router.post('/signup', (req, res) => {
   const hash = bcrypt.hashSync(password, 10);
   const userId = tx(() => {
     if (invite) {
-      return Number(insertUser.run(invite.id, name, email, hash, 'member').lastInsertRowid);
+      const id = Number(insertUser.run(invite.id, name, email, hash, 'member').lastInsertRowid);
+      logActivity({ workspaceId: invite.id, userId: id, action: 'member.joined', summary: 'joined the workspace' });
+      return id;
     }
     const wsId = Number(insertWorkspace.run(workspaceName.slice(0, 80), newInviteCode()).lastInsertRowid);
-    return Number(insertUser.run(wsId, name, email, hash, 'owner').lastInsertRowid);
+    const id = Number(insertUser.run(wsId, name, email, hash, 'owner').lastInsertRowid);
+    for (const [label, color] of DEFAULT_LABELS) insertLabel.run(wsId, label, color);
+    logActivity({ workspaceId: wsId, userId: id, action: 'workspace.created', summary: 'created the workspace' });
+    return id;
   });
 
   startSession(req, userId);

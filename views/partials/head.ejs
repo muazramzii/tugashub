@@ -11,26 +11,72 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 </head>
 <body>
-<% if (user) { %>
-<header class="topbar">
-  <div class="topbar-inner">
-    <a class="brand" href="/dashboard"><span class="brand-mark" aria-hidden="true"></span><%= appName %></a>
-    <nav class="mainnav" aria-label="Main">
-      <a href="/dashboard" class="<%= path === '/dashboard' || path.startsWith('/projects') || path.startsWith('/tasks') ? 'active' : '' %>">Projects</a>
-      <a href="/team" class="<%= path === '/team' ? 'active' : '' %>">Team</a>
-      <a href="/billing" class="<%= path === '/billing' ? 'active' : '' %>">Billing</a>
-      <a href="/settings" class="<%= path === '/settings' ? 'active' : '' %>">Settings</a>
-    </nav>
-    <div class="account">
-      <span class="ws-name" title="Workspace"><%= workspace.name %></span>
-      <span class="plan-badge plan-<%= workspace.plan %>"><%= plan.name %></span>
-      <form method="post" action="/logout">
-        <input type="hidden" name="_csrf" value="<%= csrf %>">
-        <button class="btn btn-ghost btn-sm" type="submit">Log out</button>
-      </form>
+<% if (user) {
+  const navItem = (href, label, ic, active, extra = '') =>
+    `<a href="${href}" class="nav-link${active ? ' active' : ''}"${active ? ' aria-current="page"' : ''}>${icon(ic)}<span>${label}</span>${extra}</a>`;
+%>
+<div class="shell">
+  <input type="checkbox" id="nav-toggle" class="nav-toggle sr-only" aria-hidden="true" tabindex="-1">
+  <aside class="sidebar" aria-label="Main navigation">
+    <div class="sidebar-top">
+      <a class="brand" href="/dashboard"><span class="brand-mark" aria-hidden="true"></span><%= appName %></a>
+      <label for="nav-toggle" class="icon-btn sidebar-close" aria-label="Close menu"><%- icon('x') %></label>
     </div>
-  </div>
-</header>
+    <div class="ws-card">
+      <span class="ws-avatar" aria-hidden="true"><%= initials(workspace.name) %></span>
+      <span class="ws-meta">
+        <span class="ws-title"><%= workspace.name %></span>
+        <span class="ws-plan"><%= plan.name %> plan</span>
+      </span>
+    </div>
+    <nav class="nav">
+      <%- navItem('/dashboard', 'Dashboard', 'home', path === '/dashboard') %>
+      <%- navItem('/tasks', 'All tasks', 'tasks', path === '/tasks') %>
+      <%- navItem('/calendar', 'Calendar', 'calendar', path === '/calendar') %>
+      <%- navItem('/reports', 'Reports', 'chart', path === '/reports', plan.reports ? '' : '<span class="nav-pro">Pro</span>') %>
+      <%- navItem('/activity', 'Activity', 'activity', path === '/activity') %>
+    </nav>
+    <div class="nav-section">
+      <div class="nav-heading"><span>Projects</span><a href="/dashboard#new-project" class="icon-btn icon-btn-sm" aria-label="New project"><%- icon('plus', 16) %></a></div>
+      <nav class="nav nav-projects">
+        <% for (const p of navProjects) { %>
+          <a href="/projects/<%= p.id %>" class="nav-link<%= path === '/projects/' + p.id ? ' active' : '' %>">
+            <span class="dot" style="background: <%= p.color %>" aria-hidden="true"></span><span><%= p.name %></span>
+          </a>
+        <% } %>
+        <% if (!navProjects.length) { %><span class="nav-empty">No projects yet</span><% } %>
+      </nav>
+    </div>
+    <nav class="nav nav-bottom">
+      <%- navItem('/team', 'Team', 'users', path === '/team') %>
+      <%- navItem('/billing', 'Billing', 'card', path === '/billing') %>
+      <%- navItem('/settings', 'Settings', 'settings', path === '/settings') %>
+    </nav>
+  </aside>
+  <label for="nav-toggle" class="sidebar-backdrop" aria-hidden="true"></label>
+
+  <div class="main">
+    <header class="topbar">
+      <label for="nav-toggle" class="icon-btn menu-btn" aria-label="Open menu"><%- icon('menu') %></label>
+      <form class="global-search" action="/tasks" method="get" role="search">
+        <%- icon('search', 16) %>
+        <input type="search" name="q" placeholder="Search tasks" aria-label="Search tasks" value="<%= path === '/tasks' ? (query.q || '') : '' %>">
+      </form>
+      <div class="topbar-right">
+        <a href="/notifications" class="icon-btn bell<%= path === '/notifications' ? ' active' : '' %>" aria-label="Notifications<%= unread ? ` (${unread} unread)` : '' %>">
+          <%- icon('bell') %>
+          <% if (unread) { %><span class="bell-count"><%= unread > 9 ? '9+' : unread %></span><% } %>
+        </a>
+        <span class="me">
+          <span class="avatar" aria-hidden="true"><%= initials(user.name) %></span>
+          <span class="me-text"><span class="me-name"><%= user.name %></span><span class="me-role"><%= ROLE_LABELS[user.role] %></span></span>
+        </span>
+        <form method="post" action="/logout">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <button class="icon-btn" type="submit" aria-label="Log out" title="Log out"><%- icon('logout') %></button>
+        </form>
+      </div>
+    </header>
 <% } %>
 <% if (flash) { %>
 <div class="flash flash-<%= flash.type %>" role="status"><div class="flash-inner"><%= flash.message %></div></div>

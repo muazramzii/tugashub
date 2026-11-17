@@ -6,7 +6,14 @@ const PLANS = {
     price: 0,
     maxProjects: 3,
     maxMembers: 3,
-    features: ['Up to 3 projects', 'Up to 3 team members', 'Kanban boards', 'Task assignment and due dates'],
+    reports: false,
+    export: false,
+    features: [
+      'Up to 3 active projects',
+      'Up to 3 team members',
+      'Kanban boards, calendar and search',
+      'Comments, checklists and labels',
+    ],
   },
   pro: {
     key: 'pro',
@@ -14,7 +21,14 @@ const PLANS = {
     price: 29,
     maxProjects: Infinity,
     maxMembers: Infinity,
-    features: ['Unlimited projects', 'Unlimited team members', 'Everything in Free', 'Priority support'],
+    reports: true,
+    export: true,
+    features: [
+      'Unlimited projects and members',
+      'Reports and charts',
+      'CSV export',
+      'Everything in Free',
+    ],
   },
 };
 

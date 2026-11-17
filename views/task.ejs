@@ -1,0 +1,166 @@
+<%- include('partials/head') %>
+<main class="page">
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="/projects/<%= task.project_id %>"><span class="dot" style="background: <%= task.project_color %>" aria-hidden="true"></span><%= task.project_name %></a>
+    <span aria-hidden="true">/</span>
+    <span>Task #<%= task.id %></span>
+  </nav>
+
+  <% if (error) { %><div class="alert alert-error" role="alert"><%= error %></div><% } %>
+
+  <div class="task-grid">
+    <div class="task-main">
+      <form method="post" action="/tasks/<%= task.id %>" class="card stack task-form" id="task-form">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <label class="title-field"><span class="sr-only">Title</span>
+          <input name="title" required maxlength="200" value="<%= task.title %>" class="input-title">
+        </label>
+        <label>Description
+          <textarea name="description" rows="5" maxlength="4000" placeholder="Add more detail"><%= task.description %></textarea>
+        </label>
+        <div class="form-row form-row-4">
+          <label>Status
+            <select name="status">
+              <% for (const s of ['todo', 'doing', 'done']) { %>
+                <option value="<%= s %>" <%= task.status === s ? 'selected' : '' %>><%= text.status[s] %></option>
+              <% } %>
+            </select>
+          </label>
+          <label>Priority
+            <select name="priority">
+              <% for (const p of ['low', 'medium', 'high']) { %>
+                <option value="<%= p %>" <%= task.priority === p ? 'selected' : '' %>><%= text.priority[p] %></option>
+              <% } %>
+            </select>
+          </label>
+          <label>Assignee
+            <select name="assignee_id">
+              <option value="">Unassigned</option>
+              <% for (const m of members) { %>
+                <option value="<%= m.id %>" <%= String(task.assignee_id) === String(m.id) ? 'selected' : '' %>><%= m.name %></option>
+              <% } %>
+            </select>
+          </label>
+          <label>Due date <input name="due_date" type="date" value="<%= task.due_date || '' %>"></label>
+        </div>
+        <% if (labels.length) { %>
+        <fieldset class="label-picker">
+          <legend>Labels</legend>
+          <% for (const l of labels) { %>
+          <label class="label-check" style="--label: <%= l.color %>">
+            <input type="checkbox" name="labels" value="<%= l.id %>" <%= taskLabelIds.has(l.id) ? 'checked' : '' %>><span><%= l.name %></span>
+          </label>
+          <% } %>
+        </fieldset>
+        <% } else if (can.manageLabels(user)) { %>
+          <p class="small muted">No labels yet. <a href="/settings#labels">Create labels</a> to group tasks.</p>
+        <% } %>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">Save changes</button>
+          <a class="btn btn-ghost" href="/projects/<%= task.project_id %>">Back to board</a>
+        </div>
+      </form>
+
+      <% const doneCount = checklist.filter((i) => i.done).length; %>
+      <section class="card" id="checklist">
+        <div class="section-head">
+          <h2>Checklist</h2>
+          <% if (checklist.length) { %><span class="muted small"><%= doneCount %> of <%= checklist.length %> done</span><% } %>
+        </div>
+        <% if (checklist.length) { %>
+        <span class="progress" role="img" aria-label="<%= Math.round(doneCount / checklist.length * 100) %>% of checklist done"><span style="width: <%= Math.round(doneCount / checklist.length * 100) %>%"></span></span>
+        <ul class="checklist-items">
+          <% for (const item of checklist) { %>
+          <li class="<%= item.done ? 'is-done' : '' %>">
+            <form method="post" action="/checklist/<%= item.id %>/toggle">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="check-btn <%= item.done ? 'checked' : '' %>" type="submit" role="checkbox" aria-checked="<%= item.done ? 'true' : 'false' %>" aria-label="<%= item.text %>"><%- icon('check', 14) %></button>
+            </form>
+            <span class="checklist-text"><%= item.text %></span>
+            <form method="post" action="/checklist/<%= item.id %>/delete">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="icon-btn icon-btn-sm" type="submit" aria-label="Delete item"><%- icon('x', 14) %></button>
+            </form>
+          </li>
+          <% } %>
+        </ul>
+        <% } %>
+        <form method="post" action="/tasks/<%= task.id %>/checklist" class="inline-form">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <input name="text" required maxlength="200" placeholder="Add a step" aria-label="New checklist item">
+          <button class="btn btn-ghost" type="submit">Add</button>
+        </form>
+      </section>
+
+      <section class="card" id="comments">
+        <h2>Comments <span class="muted">(<%= comments.length %>)</span></h2>
+        <% if (comments.length) { %>
+        <ul class="comments">
+          <% for (const c of comments) { %>
+          <li class="comment">
+            <span class="avatar" aria-hidden="true"><%= initials(c.user_name || '?') %></span>
+            <div class="comment-body">
+              <div class="comment-head">
+                <strong><%= c.user_name || 'Former member' %></strong>
+                <span class="muted small" title="<%= fmtDate(c.created_at) %>"><%= timeAgo(c.created_at) %></span>
+                <% if (can.deleteComment(user, c)) { %>
+                <form method="post" action="/comments/<%= c.id %>/delete" data-confirm="Delete this comment?">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>">
+                  <button class="link-btn" type="submit">Delete</button>
+                </form>
+                <% } %>
+              </div>
+              <p><%- c.html %></p>
+            </div>
+          </li>
+          <% } %>
+        </ul>
+        <% } %>
+        <form method="post" action="/tasks/<%= task.id %>/comments" class="stack comment-form">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <label><span class="sr-only">Comment</span>
+            <textarea name="body" id="comment-body" rows="3" required maxlength="4000" placeholder="Write a comment. Type @ and a first name to mention someone."></textarea>
+          </label>
+          <div class="comment-actions">
+            <span class="mention-chips">
+              <span class="small muted">Mention:</span>
+              <% for (const m of members) { if (m.id !== user.id) { %>
+                <button type="button" class="chip-btn" data-mention="<%= m.name.split(' ')[0].toLowerCase() %>">@<%= m.name.split(' ')[0].toLowerCase() %></button>
+              <% } } %>
+            </span>
+            <button class="btn btn-primary" type="submit">Comment</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <aside class="task-side">
+      <section class="card">
+        <dl class="details">
+          <dt>Status</dt><dd><span class="status-dot status-<%= task.status %>" aria-hidden="true"></span><%= text.status[task.status] %></dd>
+          <dt>Created by</dt><dd><%= task.creator_name || 'Former member' %></dd>
+          <dt>Created</dt><dd><%= fmtDate(task.created_at) %></dd>
+          <% if (task.completed_at) { %><dt>Completed</dt><dd><%= fmtDate(task.completed_at) %></dd><% } %>
+        </dl>
+      </section>
+      <section class="card">
+        <h2>History</h2>
+        <% if (!activity.length) { %><p class="muted small">No changes yet.</p><% } else { %>
+        <ul class="activity-list activity-compact">
+          <% for (const a of activity) { %>
+          <li class="activity-item">
+            <span class="activity-text"><strong><%= a.user_name || 'Someone' %></strong> <%= a.summary %>
+              <span class="activity-time"><%= timeAgo(a.created_at) %></span></span>
+          </li>
+          <% } %>
+        </ul>
+        <% } %>
+      </section>
+      <form method="post" action="/tasks/<%= task.id %>/delete" data-confirm="Delete this task? This cannot be undone.">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <button class="btn btn-danger btn-sm btn-block" type="submit">Delete task</button>
+      </form>
+    </aside>
+  </div>
+</main>
+<%- include('partials/foot') %>

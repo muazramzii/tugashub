@@ -1,0 +1,31 @@
+<%- include('partials/head') %>
+<main class="page page-narrow">
+  <div class="page-head">
+    <div>
+      <h1>Activity</h1>
+      <p class="muted">Everything that happened in <%= workspace.name %>.</p>
+    </div>
+    <form method="get" action="/activity" data-autosubmit>
+      <label><span class="sr-only">Project</span>
+        <select name="project">
+          <option value="">All projects</option>
+          <% for (const p of projects) { %><option value="<%= p.id %>" <%= project === p.id ? 'selected' : '' %>><%= p.name %></option><% } %>
+        </select>
+      </label>
+      <noscript><button class="btn btn-ghost btn-sm" type="submit">Apply</button></noscript>
+    </form>
+  </div>
+
+  <% if (!items.length) { %>
+    <div class="empty"><p>No activity yet.</p></div>
+  <% } else { %>
+  <ul class="card activity-list activity-feed">
+    <% let lastDay = ''; for (const a of items) { const day = fmtDate(a.created_at, { weekday: 'long', day: 'numeric', month: 'long' }); %>
+      <% if (day !== lastDay) { lastDay = day; %><li class="activity-day"><%= day %></li><% } %>
+      <%- include('partials/activity-item', { a, showProject: true }) %>
+    <% } %>
+  </ul>
+  <%- include('partials/pagination', { pageHref: (n) => `/activity?page=${n}${project ? '&project=' + project : ''}` }) %>
+  <% } %>
+</main>
+<%- include('partials/foot') %>

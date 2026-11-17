@@ -1,0 +1,41 @@
+<%- include('partials/head') %>
+<main class="page page-wide">
+  <div class="page-head">
+    <div>
+      <h1><%= monthLabel %></h1>
+      <p class="muted"><%= count %> task<%= count === 1 ? '' : 's' %> due this month<%= mine ? ' assigned to you' : '' %></p>
+    </div>
+    <div class="page-actions">
+      <div class="segmented" role="group" aria-label="Whose tasks">
+        <a href="/calendar?month=<%= current %>" class="<%= mine ? '' : 'active' %>">Everyone</a>
+        <a href="/calendar?month=<%= current %>&mine=1" class="<%= mine ? 'active' : '' %>">Mine</a>
+      </div>
+      <a class="btn btn-ghost" href="/calendar?month=<%= prev %><%= mine ? '&mine=1' : '' %>" aria-label="Previous month">←</a>
+      <a class="btn btn-ghost" href="/calendar<%= mine ? '?mine=1' : '' %>">Today</a>
+      <a class="btn btn-ghost" href="/calendar?month=<%= next %><%= mine ? '&mine=1' : '' %>" aria-label="Next month">→</a>
+    </div>
+  </div>
+
+  <div class="calendar" role="table" aria-label="<%= monthLabel %>">
+    <div class="cal-row cal-head" role="row">
+      <% for (const d of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) { %><div role="columnheader"><%= d %></div><% } %>
+    </div>
+    <% for (const week of weeks) { %>
+    <div class="cal-row" role="row">
+      <% for (const day of week) { const shown = day.tasks.slice(0, 3); %>
+      <div class="cal-day <%= day.inMonth ? '' : 'cal-out' %> <%= day.today ? 'cal-today' : '' %>" role="cell">
+        <span class="cal-num"><%= day.day %></span>
+        <% for (const t of shown) { %>
+          <a href="/tasks/<%= t.id %>" class="cal-task <%= t.status === 'done' ? 'is-done' : '' %> <%= t.is_overdue ? 'is-late' : '' %>" style="--project: <%= t.project_color %>" title="<%= t.title %> · <%= t.project_name %>"><%= t.title %></a>
+        <% } %>
+        <% if (day.tasks.length > shown.length) { %>
+          <a href="/tasks?due=<%= day.date %>" class="cal-more">+<%= day.tasks.length - shown.length %> more</a>
+        <% } %>
+      </div>
+      <% } %>
+    </div>
+    <% } %>
+  </div>
+  <p class="muted small board-hint">Tasks appear on their due date, coloured by project. Late tasks have a red edge.</p>
+</main>
+<%- include('partials/foot') %>

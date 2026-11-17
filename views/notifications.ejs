@@ -1,0 +1,32 @@
+<%- include('partials/head') %>
+<main class="page page-narrow">
+  <div class="page-head">
+    <div>
+      <h1>Notifications</h1>
+      <p class="muted"><%= unread %> unread</p>
+    </div>
+    <% if (unread) { %>
+    <form method="post" action="/notifications/read-all">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <button class="btn btn-ghost" type="submit"><%- icon('check', 16) %> Mark all as read</button>
+    </form>
+    <% } %>
+  </div>
+
+  <% if (!notifications.length) { %>
+    <div class="empty"><p><strong>You're all caught up.</strong> You'll be notified when someone assigns you a task, mentions you, or comments on your work.</p></div>
+  <% } else { %>
+  <ul class="card card-flush notif-list">
+    <% for (const n of notifications) { %>
+    <li>
+      <a href="/notifications/<%= n.id %>" class="notif <%= n.read_at ? '' : 'unread' %>">
+        <span class="notif-icon notif-<%= n.kind %>" aria-hidden="true"><%- icon({ assigned: 'tasks', mention: 'comment', comment: 'comment', completed: 'check' }[n.kind] || 'bell', 16) %></span>
+        <span class="notif-text"><%= n.message %><span class="activity-time"><%= timeAgo(n.created_at) %></span></span>
+        <% if (!n.read_at) { %><span class="unread-dot" aria-label="Unread"></span><% } %>
+      </a>
+    </li>
+    <% } %>
+  </ul>
+  <% } %>
+</main>
+<%- include('partials/foot') %>

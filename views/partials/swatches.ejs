@@ -1,0 +1,9 @@
+<fieldset class="swatches">
+  <legend>Colour</legend>
+  <% colors.forEach((c, i) => { %>
+    <label class="swatch" style="--c: <%= c %>">
+      <input type="radio" name="<%= name %>" value="<%= c %>" <%= c === selected ? 'checked' : '' %>>
+      <span class="sr-only">Colour <%= i + 1 %></span>
+    </label>
+  <% }) %>
+</fieldset>

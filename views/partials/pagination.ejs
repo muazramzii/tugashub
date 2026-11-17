@@ -1,0 +1,7 @@
+<% if (pages > 1) { %>
+<nav class="pagination" aria-label="Pages">
+  <% if (page > 1) { %><a class="btn btn-ghost btn-sm" href="<%= pageHref(page - 1) %>">← Newer</a><% } else { %><span></span><% } %>
+  <span class="muted small">Page <%= page %> of <%= pages %></span>
+  <% if (page < pages) { %><a class="btn btn-ghost btn-sm" href="<%= pageHref(page + 1) %>">Older →</a><% } else { %><span></span><% } %>
+</nav>
+<% } %>

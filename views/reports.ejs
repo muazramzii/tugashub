@@ -1,0 +1,113 @@
+<%- include('partials/head') %>
+<%
+  const rate = totals.total ? Math.round(totals.done / totals.total * 100) : 0;
+  const delta = totals.done_7 - totals.done_prev_7;
+  const weekMax = Math.max(1, ...weeks.map((w) => w.count));
+  const loadMax = Math.max(1, ...workload.map((m) => m.todo + m.doing));
+  const prioMax = Math.max(1, byPriority.high, byPriority.medium, byPriority.low);
+%>
+<main class="page page-wide">
+  <div class="page-head">
+    <div>
+      <h1>Reports</h1>
+      <p class="muted">Active projects in <%= workspace.name %>. Archived projects are left out.</p>
+    </div>
+    <a class="btn btn-ghost" href="/tasks/export.csv"><%- icon('download', 16) %> Export all tasks</a>
+  </div>
+
+  <section class="stats" aria-label="Key numbers">
+    <div class="stat"><span class="stat-label">Completion rate</span><span class="stat-value"><%= rate %>%</span><span class="stat-sub"><%= totals.done %> of <%= totals.total %> tasks done</span></div>
+    <div class="stat"><span class="stat-label">Completed, last 7 days</span><span class="stat-value"><%= totals.done_7 %></span>
+      <span class="stat-sub"><%= delta === 0 ? 'Same as' : (delta > 0 ? `${delta} more than` : `${-delta} fewer than`) %> the week before</span></div>
+    <div class="stat"><span class="stat-label">Average time to finish</span><span class="stat-value"><%= totals.avg_days === null ? '—' : totals.avg_days.toFixed(1) %><% if (totals.avg_days !== null) { %><small> days</small><% } %></span><span class="stat-sub">From created to done</span></div>
+    <div class="stat <%= totals.overdue ? 'stat-warn' : '' %>"><span class="stat-label">Overdue</span><span class="stat-value"><%= totals.overdue %></span><span class="stat-sub"><%= totals.overdue ? 'Open tasks past their due date' : 'Nothing is late' %></span></div>
+  </section>
+
+  <div class="report-grid">
+    <section class="card chart-card">
+      <h2>Tasks completed per week</h2>
+      <p class="muted small">Last 8 weeks. Weeks start on Monday.</p>
+      <div class="vbar-chart" role="img" aria-label="Bar chart of tasks completed per week">
+        <div class="vbar-plot">
+          <% weeks.forEach((w, i) => { const last = i === weeks.length - 1; %>
+          <div class="vbar" tabindex="0" data-tip="Week of <%= w.label %>: <%= w.count %> completed">
+            <% if (last || w.count === weekMax) { %><span class="vbar-value"><%= w.count %></span><% } %>
+            <span class="vbar-fill" style="height: <%= (w.count / weekMax * 100).toFixed(1) %>%"></span>
+          </div>
+          <% }) %>
+        </div>
+        <div class="vbar-axis" aria-hidden="true">
+          <% for (const w of weeks) { %><span><%= w.label %></span><% } %>
+        </div>
+      </div>
+      <details class="data-table">
+        <summary>Show as table</summary>
+        <table class="table"><thead><tr><th>Week starting</th><th class="num">Completed</th></tr></thead>
+          <tbody><% for (const w of weeks) { %><tr><td><%= w.label %></td><td class="num"><%= w.count %></td></tr><% } %></tbody></table>
+      </details>
+    </section>
+
+    <section class="card chart-card">
+      <h2>Open work by priority</h2>
+      <p class="muted small">Tasks that are not done yet.</p>
+      <div class="hbar-chart">
+        <% for (const p of ['high', 'medium', 'low']) { %>
+        <div class="hbar-row">
+          <span class="hbar-label"><%= text.priority[p] %></span>
+          <span class="hbar-track">
+            <% if (byPriority[p]) { %><span class="hbar-seg seg-1" tabindex="0" data-tip="<%= text.priority[p] %> priority: <%= byPriority[p] %> open" style="width: <%= (byPriority[p] / prioMax * 100).toFixed(1) %>%"></span><% } %>
+          </span>
+          <span class="hbar-total"><%= byPriority[p] %></span>
+        </div>
+        <% } %>
+      </div>
+    </section>
+
+    <section class="card chart-card chart-wide">
+      <h2>Workload by member</h2>
+      <p class="muted small">Open tasks assigned to each person.</p>
+      <div class="legend" aria-hidden="true">
+        <span><i class="swatch-key seg-1"></i>To do</span>
+        <span><i class="swatch-key seg-2"></i>In progress</span>
+      </div>
+      <div class="hbar-chart">
+        <% for (const m of workload) { %>
+        <div class="hbar-row">
+          <span class="hbar-label"><%= m.name %></span>
+          <span class="hbar-track">
+            <% if (m.todo) { %><span class="hbar-seg seg-1" tabindex="0" data-tip="<%= m.name %>: <%= m.todo %> to do" style="width: <%= (m.todo / loadMax * 100).toFixed(1) %>%"></span><% } %>
+            <% if (m.doing) { %><span class="hbar-seg seg-2" tabindex="0" data-tip="<%= m.name %>: <%= m.doing %> in progress" style="width: <%= (m.doing / loadMax * 100).toFixed(1) %>%"></span><% } %>
+          </span>
+          <span class="hbar-total"><%= m.todo + m.doing %><% if (m.overdue) { %> <span class="due-late small">(<%= m.overdue %> late)</span><% } %></span>
+        </div>
+        <% } %>
+      </div>
+      <details class="data-table">
+        <summary>Show as table</summary>
+        <table class="table"><thead><tr><th>Member</th><th class="num">To do</th><th class="num">In progress</th><th class="num">Done</th><th class="num">Overdue</th></tr></thead>
+          <tbody><% for (const m of workload) { %><tr><td><%= m.name %></td><td class="num"><%= m.todo %></td><td class="num"><%= m.doing %></td><td class="num"><%= m.done %></td><td class="num"><%= m.overdue %></td></tr><% } %></tbody></table>
+      </details>
+    </section>
+
+    <section class="card chart-wide card-flush">
+      <h2 class="card-pad">Project health</h2>
+      <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Project</th><th>Progress</th><th class="num">Tasks</th><th class="num">Done</th><th class="num">Overdue</th></tr></thead>
+        <tbody>
+          <% for (const p of projects) { const pct = p.total ? Math.round(p.done / p.total * 100) : 0; %>
+          <tr>
+            <td><a class="project-link" href="/projects/<%= p.id %>"><span class="dot" style="background: <%= p.color %>" aria-hidden="true"></span><%= p.name %></a></td>
+            <td class="cell-progress"><span class="progress" style="--project: <%= p.color %>"><span style="width: <%= pct %>%"></span></span><span class="small muted"><%= pct %>%</span></td>
+            <td class="num"><%= p.total %></td>
+            <td class="num"><%= p.done %></td>
+            <td class="num"><%= p.overdue ? p.overdue : '—' %></td>
+          </tr>
+          <% } %>
+        </tbody>
+      </table>
+      </div>
+    </section>
+  </div>
+</main>
+<%- include('partials/foot') %>

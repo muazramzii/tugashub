@@ -1,5 +1,5 @@
 <%- include('partials/head') %>
-<main class="container page page-narrow">
+<main class="page page-narrow">
   <h1>Billing</h1>
   <p class="muted">Payments are simulated in this demo. No card is charged.</p>
 
@@ -27,7 +27,7 @@
       <ul class="checklist">
         <% for (const f of p.features) { %><li><%= f %></li><% } %>
       </ul>
-      <% if (!current && user.role === 'owner') { %>
+      <% if (!current && can.manageBilling(user)) { %>
       <form method="post" action="/billing/<%= p.key === 'pro' ? 'upgrade' : 'downgrade' %>"
             data-confirm="<%= p.key === 'pro' ? 'Upgrade to Pro for RM' + p.price + '/month? (Demo: no real charge.)' : 'Move to the Free plan?' %>">
         <input type="hidden" name="_csrf" value="<%= csrf %>">

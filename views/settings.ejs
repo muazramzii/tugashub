@@ -1,5 +1,5 @@
 <%- include('partials/head') %>
-<main class="container page page-narrow">
+<main class="page page-narrow">
   <h1>Settings</h1>
 
   <section class="card">
@@ -12,7 +12,7 @@
     </form>
   </section>
 
-  <% if (user.role === 'owner') { %>
+  <% if (can.renameWorkspace(user)) { %>
   <section class="card">
     <h2>Workspace</h2>
     <form method="post" action="/settings/workspace" class="stack">
@@ -22,6 +22,37 @@
     </form>
   </section>
   <% } %>
+
+  <section class="card" id="labels">
+    <h2>Labels</h2>
+    <p class="muted small">Labels group tasks across projects, like "Bug" or "Design". Filter by them on boards and in search.</p>
+    <% if (labels.length) { %>
+    <ul class="label-admin">
+      <% for (const l of labels) { %>
+      <li>
+        <span class="label" style="--label: <%= l.color %>"><%= l.name %></span>
+        <a class="small muted" href="/tasks?label=<%= l.id %>"><%= l.uses %> task<%= l.uses === 1 ? '' : 's' %></a>
+        <% if (can.manageLabels(user)) { %>
+        <form method="post" action="/settings/labels/<%= l.id %>/delete" data-confirm="Delete the label <%= l.name %>? It will be removed from <%= l.uses %> task(s).">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <button class="icon-btn icon-btn-sm" type="submit" aria-label="Delete label <%= l.name %>"><%- icon('x', 14) %></button>
+        </form>
+        <% } %>
+      </li>
+      <% } %>
+    </ul>
+    <% } %>
+    <% if (can.manageLabels(user)) { %>
+    <form method="post" action="/settings/labels" class="stack label-new">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label>New label <input name="name" required maxlength="30" placeholder="e.g. Urgent"></label>
+      <%- include('partials/swatches', { colors: labelColors, selected: labelColors[0], name: 'color' }) %>
+      <button class="btn btn-ghost btn-sm" type="submit">Add label</button>
+    </form>
+    <% } else { %>
+      <p class="small muted">Only admins and the owner can add or delete labels.</p>
+    <% } %>
+  </section>
 
   <section class="card">
     <h2>Change password</h2>

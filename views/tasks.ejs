@@ -1,0 +1,107 @@
+<%- include('partials/head') %>
+<main class="page page-wide">
+  <div class="page-head">
+    <div>
+      <h1>All tasks</h1>
+      <p class="muted"><%= total %> task<%= total === 1 ? '' : 's' %><%= Object.keys(filters).length ? ' match your filters' : ' across active projects' %></p>
+    </div>
+    <div class="page-actions">
+      <% if (plan.export) { %>
+        <a class="btn btn-ghost" href="/tasks/export.csv<%= filterQuery(filters) %>"><%- icon('download', 16) %> Export CSV</a>
+      <% } else { %>
+        <a class="btn btn-ghost" href="/billing" title="CSV export is a Pro feature"><%- icon('lock', 16) %> Export CSV <span class="nav-pro">Pro</span></a>
+      <% } %>
+    </div>
+  </div>
+
+  <form class="filter-bar" method="get" action="/tasks" data-autosubmit>
+    <label class="filter-search"><span class="sr-only">Search</span>
+      <input type="search" name="q" placeholder="Search title or description" value="<%= filters.q || '' %>">
+    </label>
+    <label><span class="sr-only">Project</span>
+      <select name="project">
+        <option value="">All projects</option>
+        <% for (const p of projects) { %><option value="<%= p.id %>" <%= filters.project === p.id ? 'selected' : '' %>><%= p.name %></option><% } %>
+      </select>
+    </label>
+    <label><span class="sr-only">Status</span>
+      <select name="status">
+        <option value="">Any status</option>
+        <option value="open" <%= filters.status === 'open' ? 'selected' : '' %>>Not done</option>
+        <% for (const s of ['todo', 'doing', 'done']) { %><option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= text.status[s] %></option><% } %>
+      </select>
+    </label>
+    <label><span class="sr-only">Assignee</span>
+      <select name="assignee">
+        <option value="">Anyone</option>
+        <option value="me" <%= filters.assignee === 'me' ? 'selected' : '' %>>Assigned to me</option>
+        <option value="none" <%= filters.assignee === 'none' ? 'selected' : '' %>>Unassigned</option>
+        <% for (const m of members) { %><option value="<%= m.id %>" <%= filters.assignee === m.id ? 'selected' : '' %>><%= m.name %></option><% } %>
+      </select>
+    </label>
+    <label><span class="sr-only">Label</span>
+      <select name="label">
+        <option value="">Any label</option>
+        <% for (const l of labels) { %><option value="<%= l.id %>" <%= filters.label === l.id ? 'selected' : '' %>><%= l.name %></option><% } %>
+      </select>
+    </label>
+    <label><span class="sr-only">Priority</span>
+      <select name="priority">
+        <option value="">Any priority</option>
+        <% for (const p of ['high', 'medium', 'low']) { %><option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= text.priority[p] %></option><% } %>
+      </select>
+    </label>
+    <label><span class="sr-only">Due</span>
+      <select name="due">
+        <option value="">Any due date</option>
+        <option value="overdue" <%= filters.due === 'overdue' ? 'selected' : '' %>>Overdue</option>
+        <option value="week" <%= filters.due === 'week' ? 'selected' : '' %>>Due in 7 days</option>
+        <option value="none" <%= filters.due === 'none' ? 'selected' : '' %>>No due date</option>
+        <% if (filters.due && /^\d/.test(filters.due)) { %><option value="<%= filters.due %>" selected>Due <%= fmtDate(filters.due) %></option><% } %>
+      </select>
+    </label>
+    <label><span class="sr-only">Sort by</span>
+      <select name="sort">
+        <option value="due" <%= !filters.sort || filters.sort === 'due' ? 'selected' : '' %>>Sort: due date</option>
+        <option value="priority" <%= filters.sort === 'priority' ? 'selected' : '' %>>Sort: priority</option>
+        <option value="created" <%= filters.sort === 'created' ? 'selected' : '' %>>Sort: newest</option>
+        <option value="title" <%= filters.sort === 'title' ? 'selected' : '' %>>Sort: title</option>
+      </select>
+    </label>
+    <noscript><button class="btn btn-ghost btn-sm" type="submit">Apply</button></noscript>
+    <% if (Object.keys(filters).length) { %><a class="btn btn-ghost btn-sm" href="/tasks">Clear</a><% } %>
+  </form>
+
+  <% if (!tasks.length) { %>
+    <div class="empty"><p><strong>No tasks found.</strong> Try removing a filter.</p></div>
+  <% } else { %>
+  <div class="table-wrap card card-flush">
+    <table class="table task-table">
+      <thead>
+        <tr><th>Task</th><th>Project</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Due</th></tr>
+      </thead>
+      <tbody>
+        <% for (const t of tasks) { %>
+        <tr>
+          <td class="cell-task">
+            <a href="/tasks/<%= t.id %>" class="<%= t.status === 'done' ? 'is-done' : '' %>"><%= t.title %></a>
+            <span class="cell-sub">
+              <% for (const l of t.labels) { %><span class="label" style="--label: <%= l.color %>"><%= l.name %></span><% } %>
+              <% if (t.checklist_total) { %><span class="meta-pill"><%- icon('check', 12) %><%= t.checklist_done %>/<%= t.checklist_total %></span><% } %>
+              <% if (t.comment_count) { %><span class="meta-pill"><%- icon('comment', 12) %><%= t.comment_count %></span><% } %>
+            </span>
+          </td>
+          <td><a class="project-link" href="/projects/<%= t.project_id %>"><span class="dot" style="background: <%= t.project_color %>" aria-hidden="true"></span><%= t.project_name %></a></td>
+          <td class="nowrap"><span class="status-dot status-<%= t.status %>" aria-hidden="true"></span><%= text.status[t.status] %></td>
+          <td><span class="chip chip-<%= t.priority %>"><%= text.priority[t.priority] %></span></td>
+          <td class="nowrap"><%= t.assignee_name || '—' %></td>
+          <td class="nowrap"><% if (t.due_date) { %><span class="due <%= t.is_overdue ? 'due-late' : '' %>"><%= fmtDate(t.due_date) %></span><% } else { %>—<% } %></td>
+        </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+  <%- include('partials/pagination', { pageHref: (n) => '/tasks' + filterQuery(filters, { page: n }) }) %>
+  <% } %>
+</main>
+<%- include('partials/foot') %>

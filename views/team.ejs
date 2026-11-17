@@ -1,5 +1,5 @@
 <%- include('partials/head') %>
-<main class="container page page-narrow">
+<main class="page page-narrow">
   <div class="page-head">
     <div>
       <h1>Team</h1>
@@ -12,13 +12,13 @@
     <% if (members.length >= plan.maxMembers) { %>
       <p>Your workspace is full. <a href="/billing">Upgrade to Pro</a> to add more members.</p>
     <% } else { %>
-      <p class="muted">Anyone with this link can create an account and join <strong><%= workspace.name %></strong>.</p>
+      <p class="muted">Anyone with this link can create an account and join <strong><%= workspace.name %></strong> as a member.</p>
       <div class="copy-row">
         <input id="invite-url" readonly value="<%= inviteUrl %>" aria-label="Invite link">
         <button class="btn btn-primary" type="button" data-copy="#invite-url">Copy link</button>
       </div>
     <% } %>
-    <% if (user.role === 'owner') { %>
+    <% if (can.manageInvites(user)) { %>
     <form method="post" action="/team/invite/reset" data-confirm="Create a new invite link? The current link will stop working.">
       <input type="hidden" name="_csrf" value="<%= csrf %>">
       <button class="link-btn" type="submit">Reset invite link</button>
@@ -31,13 +31,26 @@
     <ul class="member-list">
       <% for (const m of members) { %>
       <li>
-        <span class="avatar avatar-lg"><%= initials(m.name) %></span>
+        <span class="avatar avatar-lg" aria-hidden="true"><%= initials(m.name) %></span>
         <span class="member-main">
           <span class="member-name"><%= m.name %><% if (m.id === user.id) { %> <span class="muted">(you)</span><% } %></span>
-          <span class="small muted"><%= m.email %> · <%= m.open_tasks %> open task<%= m.open_tasks === 1 ? '' : 's' %></span>
+          <span class="small muted"><%= m.email %> · @<%= mentionHandle(m.name) %> · <%= m.open_tasks %> open task<%= m.open_tasks === 1 ? '' : 's' %></span>
         </span>
-        <span class="role role-<%= m.role %>"><%= m.role === 'owner' ? 'Owner' : 'Member' %></span>
-        <% if (user.role === 'owner' && m.role !== 'owner') { %>
+        <% if (can.changeRoles(user) && m.role !== 'owner') { %>
+        <form method="post" action="/team/<%= m.id %>/role" data-autosubmit>
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <label><span class="sr-only">Role for <%= m.name %></span>
+            <select name="role" class="select-sm">
+              <option value="member" <%= m.role === 'member' ? 'selected' : '' %>>Member</option>
+              <option value="admin" <%= m.role === 'admin' ? 'selected' : '' %>>Admin</option>
+            </select>
+          </label>
+          <noscript><button class="btn btn-ghost btn-sm" type="submit">Save</button></noscript>
+        </form>
+        <% } else { %>
+        <span class="role role-<%= m.role %>"><%= ROLE_LABELS[m.role] %></span>
+        <% } %>
+        <% if (can.removeMember(user, m)) { %>
         <form method="post" action="/team/<%= m.id %>/remove" data-confirm="Remove <%= m.name %> from the workspace? Their tasks will become unassigned.">
           <input type="hidden" name="_csrf" value="<%= csrf %>">
           <button class="btn btn-ghost btn-sm" type="submit">Remove</button>
@@ -46,6 +59,19 @@
       </li>
       <% } %>
     </ul>
+  </section>
+
+  <section class="card roles-help">
+    <h2>What each role can do</h2>
+    <table class="table">
+      <thead><tr><th></th><th>Member</th><th>Admin</th><th>Owner</th></tr></thead>
+      <tbody>
+        <tr><td>Create and edit projects, tasks, comments</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>Archive and delete projects, manage labels</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>Reset invite link, remove members</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>Change roles, billing, rename workspace</td><td>—</td><td>—</td><td>Yes</td></tr>
+      </tbody>
+    </table>
   </section>
 </main>
 <%- include('partials/foot') %>

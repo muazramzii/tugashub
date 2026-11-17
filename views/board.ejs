@@ -1,13 +1,24 @@
 <%- include('partials/head') %>
-<main class="container page page-wide">
+<main class="page page-wide">
+  <% if (project.archived_at) { %>
+  <div class="banner">
+    <%- icon('archive', 16) %> This project is archived. Its tasks are hidden from the dashboard, search and calendar.
+    <% if (can.manageProjects(user)) { %>
+    <form method="post" action="/projects/<%= project.id %>/restore">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <button class="btn btn-ghost btn-sm" type="submit">Restore project</button>
+    </form>
+    <% } %>
+  </div>
+  <% } %>
+
   <div class="page-head">
     <div>
-      <a class="back" href="/dashboard">← Projects</a>
       <h1 class="project-title" style="--project: <%= project.color %>"><%= project.name %></h1>
       <% if (project.description) { %><p class="muted"><%= project.description %></p><% } %>
     </div>
     <div class="page-actions">
-      <button class="btn btn-primary" type="button" data-open="new-task">Add task</button>
+      <button class="btn btn-primary" type="button" data-open="new-task"><%- icon('plus', 16) %> Add task</button>
       <details class="menu">
         <summary class="btn btn-ghost">Project settings</summary>
         <div class="menu-panel card">
@@ -15,53 +26,82 @@
             <input type="hidden" name="_csrf" value="<%= csrf %>">
             <label>Name <input name="name" required maxlength="80" value="<%= project.name %>"></label>
             <label>Description <input name="description" maxlength="500" value="<%= project.description %>"></label>
+            <%- include('partials/swatches', { colors, selected: project.color, name: 'color' }) %>
             <button class="btn btn-primary btn-sm" type="submit">Save</button>
           </form>
-          <% if (user.role === 'owner') { %>
-          <form method="post" action="/projects/<%= project.id %>/delete" data-confirm="Delete this project and all of its tasks? This cannot be undone.">
-            <input type="hidden" name="_csrf" value="<%= csrf %>">
-            <button class="btn btn-danger btn-sm" type="submit">Delete project</button>
-          </form>
+          <% if (can.manageProjects(user)) { %>
+          <div class="menu-danger">
+            <% if (!project.archived_at) { %>
+            <form method="post" action="/projects/<%= project.id %>/archive" data-confirm="Archive this project? You can restore it later.">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="btn btn-ghost btn-sm" type="submit"><%- icon('archive', 15) %> Archive</button>
+            </form>
+            <% } %>
+            <form method="post" action="/projects/<%= project.id %>/delete" data-confirm="Delete this project and all of its tasks? This cannot be undone.">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="btn btn-danger btn-sm" type="submit">Delete project</button>
+            </form>
+          </div>
           <% } %>
         </div>
       </details>
     </div>
   </div>
 
+  <form class="filter-bar" method="get" action="/projects/<%= project.id %>" data-autosubmit>
+    <label class="filter-search"><span class="sr-only">Search this board</span>
+      <input type="search" name="q" placeholder="Filter cards" value="<%= filters.q || '' %>">
+    </label>
+    <label><span class="sr-only">Assignee</span>
+      <select name="assignee">
+        <option value="">Anyone</option>
+        <option value="me" <%= filters.assignee === 'me' ? 'selected' : '' %>>Assigned to me</option>
+        <option value="none" <%= filters.assignee === 'none' ? 'selected' : '' %>>Unassigned</option>
+        <% for (const m of members) { %><option value="<%= m.id %>" <%= filters.assignee === m.id ? 'selected' : '' %>><%= m.name %></option><% } %>
+      </select>
+    </label>
+    <label><span class="sr-only">Label</span>
+      <select name="label">
+        <option value="">Any label</option>
+        <% for (const l of labels) { %><option value="<%= l.id %>" <%= filters.label === l.id ? 'selected' : '' %>><%= l.name %></option><% } %>
+      </select>
+    </label>
+    <label><span class="sr-only">Priority</span>
+      <select name="priority">
+        <option value="">Any priority</option>
+        <% for (const p of ['high', 'medium', 'low']) { %><option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= text.priority[p] %></option><% } %>
+      </select>
+    </label>
+    <label><span class="sr-only">Due</span>
+      <select name="due">
+        <option value="">Any due date</option>
+        <option value="overdue" <%= filters.due === 'overdue' ? 'selected' : '' %>>Overdue</option>
+        <option value="week" <%= filters.due === 'week' ? 'selected' : '' %>>Due in 7 days</option>
+        <option value="none" <%= filters.due === 'none' ? 'selected' : '' %>>No due date</option>
+      </select>
+    </label>
+    <noscript><button class="btn btn-ghost btn-sm" type="submit">Apply</button></noscript>
+    <% if (filtered) { %><a class="btn btn-ghost btn-sm" href="/projects/<%= project.id %>">Clear filters</a><% } %>
+  </form>
+
   <div class="board" data-csrf="<%= csrf %>">
     <% for (const status of ['todo', 'doing', 'done']) { const list = columns[status]; %>
-    <section class="column" data-status="<%= status %>" aria-label="<%= labels.status[status] %>">
+    <section class="column" data-status="<%= status %>" aria-label="<%= text.status[status] %>">
       <header class="column-head">
-        <h2><%= labels.status[status] %></h2>
+        <h2><span class="status-dot status-<%= status %>" aria-hidden="true"></span><%= text.status[status] %></h2>
         <span class="count"><%= list.length %></span>
       </header>
       <ol class="cards">
-        <% for (const t of list) { %>
-        <li class="task-card <%= t.status === 'done' ? 'is-done' : '' %>" draggable="true" data-id="<%= t.id %>">
-          <a class="task-link" draggable="false" href="/tasks/<%= t.id %>/edit">
-            <span class="task-top">
-              <span class="chip chip-<%= t.priority %>"><%= labels.priority[t.priority] %></span>
-              <% if (t.due_date) { %><span class="due <%= t.is_overdue ? 'due-late' : '' %>"><%= t.is_overdue ? 'Late · ' : '' %><%= fmtDate(t.due_date) %></span><% } %>
-            </span>
-            <span class="task-title"><%= t.title %></span>
-            <% if (t.description) { %><span class="task-desc"><%= t.description %></span><% } %>
-            <span class="task-foot">
-              <% if (t.assignee_name) { %>
-                <span class="avatar" title="<%= t.assignee_name %>"><%= initials(t.assignee_name) %></span>
-                <span class="small muted"><%= t.assignee_name %></span>
-              <% } else { %>
-                <span class="small muted">Unassigned</span>
-              <% } %>
-            </span>
-          </a>
-        </li>
-        <% } %>
+        <% for (const t of list) { %><%- include('partials/task-card', { t, draggable: !filtered }) %><% } %>
       </ol>
-      <button class="add-inline" type="button" data-open="new-task" data-status="<%= status %>">+ Add task</button>
+      <button class="add-inline" type="button" data-open="new-task" data-status="<%= status %>"><%- icon('plus', 15) %> Add task</button>
     </section>
     <% } %>
   </div>
-  <p class="muted small board-hint">Drag cards between columns to change their status. Click a card to edit it.</p>
+  <p class="muted small board-hint">
+    <% if (filtered) { %>Showing <%= columns.todo.length + columns.doing.length + columns.done.length %> of <%= total %> tasks. Clear the filters to drag cards.
+    <% } else { %>Drag cards between columns to change their status. Click a card to open it.<% } %>
+  </p>
 </main>
 
 <dialog id="new-task" class="dialog">
@@ -69,16 +109,16 @@
     <input type="hidden" name="_csrf" value="<%= csrf %>">
     <div class="dialog-head">
       <h2>New task</h2>
-      <button class="btn btn-ghost btn-sm" type="button" data-close>Cancel</button>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><%- icon('x') %></button>
     </div>
     <label>Title <input name="title" required maxlength="200"></label>
     <label>Description <span class="optional">optional</span>
-      <textarea name="description" rows="3" maxlength="2000"></textarea>
+      <textarea name="description" rows="3" maxlength="4000"></textarea>
     </label>
     <div class="form-row">
       <label>Column
         <select name="status">
-          <% for (const s of ['todo', 'doing', 'done']) { %><option value="<%= s %>"><%= labels.status[s] %></option><% } %>
+          <% for (const s of ['todo', 'doing', 'done']) { %><option value="<%= s %>"><%= text.status[s] %></option><% } %>
         </select>
       </label>
       <label>Priority
@@ -98,6 +138,14 @@
       </label>
       <label>Due date <input name="due_date" type="date"></label>
     </div>
+    <% if (labels.length) { %>
+    <fieldset class="label-picker">
+      <legend>Labels</legend>
+      <% for (const l of labels) { %>
+      <label class="label-check" style="--label: <%= l.color %>"><input type="checkbox" name="labels" value="<%= l.id %>"><span><%= l.name %></span></label>
+      <% } %>
+    </fieldset>
+    <% } %>
     <button class="btn btn-primary" type="submit">Create task</button>
   </form>
 </dialog>

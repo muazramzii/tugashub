@@ -1,0 +1,8 @@
+<li class="activity-item">
+  <span class="avatar avatar-sm" aria-hidden="true"><%= initials(a.user_name || '?') %></span>
+  <span class="activity-text">
+    <strong><%= a.user_name || 'Someone' %></strong>
+    <% if (a.task_id) { %><a href="/tasks/<%= a.task_id %>"><%= a.summary %></a><% } else { %><%= a.summary %><% } %>
+    <span class="activity-time" title="<%= fmtDate(a.created_at) %>"><%= timeAgo(a.created_at) %><% if (typeof showProject !== 'undefined' && showProject && a.project_name) { %> · <%= a.project_name %><% } %></span>
+  </span>
+</li>

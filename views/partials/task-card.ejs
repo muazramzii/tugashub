@@ -1,0 +1,19 @@
+<li class="task-card <%= t.status === 'done' ? 'is-done' : '' %>" <%= draggable ? 'draggable=true' : '' %> data-id="<%= t.id %>">
+  <a class="task-link" draggable="false" href="/tasks/<%= t.id %>">
+    <% if (t.labels.length) { %>
+    <span class="label-row">
+      <% for (const l of t.labels) { %><span class="label" style="--label: <%= l.color %>"><%= l.name %></span><% } %>
+    </span>
+    <% } %>
+    <span class="task-title"><%= t.title %></span>
+    <span class="task-meta">
+      <span class="chip chip-<%= t.priority %>"><%= text.priority[t.priority] %></span>
+      <% if (t.due_date) { %><span class="due <%= t.is_overdue ? 'due-late' : '' %>"><%- icon('clock', 13) %><%= t.is_overdue ? 'Late · ' : '' %><%= fmtDate(t.due_date, { day: 'numeric', month: 'short' }) %></span><% } %>
+      <% if (t.checklist_total) { %><span class="meta-pill <%= t.checklist_done === t.checklist_total ? 'meta-done' : '' %>" title="Checklist"><%- icon('check', 13) %><%= t.checklist_done %>/<%= t.checklist_total %></span><% } %>
+      <% if (t.comment_count) { %><span class="meta-pill" title="Comments"><%- icon('comment', 13) %><%= t.comment_count %></span><% } %>
+      <span class="task-assignee">
+        <% if (t.assignee_name) { %><span class="avatar avatar-sm" title="<%= t.assignee_name %>"><%= initials(t.assignee_name) %></span><% } %>
+      </span>
+    </span>
+  </a>
+</li>
