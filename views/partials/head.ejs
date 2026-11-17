@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/css/style.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 </head>
-<body>
+<body data-me="<%= user ? user.id : '' %>">
 <% if (user) {
   const navItem = (href, label, ic, active, extra = '') =>
     `<a href="${href}" class="nav-link${active ? ' active' : ''}"${active ? ' aria-current="page"' : ''}>${icon(ic)}<span>${label}</span>${extra}</a>`;
@@ -34,6 +34,7 @@
       <%- navItem('/tasks', 'All tasks', 'tasks', path === '/tasks') %>
       <%- navItem('/calendar', 'Calendar', 'calendar', path === '/calendar') %>
       <%- navItem('/reports', 'Reports', 'chart', path === '/reports', plan.reports ? '' : '<span class="nav-pro">Pro</span>') %>
+      <%- navItem('/chat', 'Chat', 'comment', path.startsWith('/chat'), `<span class="nav-badge" data-chat-badge${chatUnread ? '' : ' hidden'}>${chatUnread}</span>`) %>
       <%- navItem('/activity', 'Activity', 'activity', path === '/activity') %>
     </nav>
     <div class="nav-section">

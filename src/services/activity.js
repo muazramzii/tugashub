@@ -1,10 +1,11 @@
 const { db } = require('../db');
+const realtime = require('../realtime');
 
 const insertActivity = db.prepare(`
   INSERT INTO activity (workspace_id, user_id, project_id, task_id, action, summary)
   VALUES (?, ?, ?, ?, ?, ?)`);
 const insertNotification = db.prepare(`
-  INSERT INTO notifications (user_id, actor_id, task_id, kind, message) VALUES (?, ?, ?, ?, ?)`);
+  INSERT INTO notifications (user_id, actor_id, task_id, kind, message, url) VALUES (?, ?, ?, ?, ?, ?)`);
 const membersOf = db.prepare('SELECT id, name FROM users WHERE workspace_id = ?');
 
 const quote = (s) => `“${s}”`;
@@ -17,10 +18,11 @@ function logActivity({ workspaceId, userId = null, projectId = null, taskId = nu
   insertActivity.run(workspaceId, userId, projectId, taskId, action, summary);
 }
 
-/** Notify a user, unless they caused the event themselves. */
-function notify({ userId, actorId, taskId = null, kind, message }) {
+/** Notify a user (unless they caused the event themselves) and ping their open tabs. */
+function notify({ userId, actorId, taskId = null, kind, message, url = null }) {
   if (!userId || userId === actorId) return;
-  insertNotification.run(userId, actorId, taskId, kind, message);
+  const id = Number(insertNotification.run(userId, actorId, taskId, kind, message, url).lastInsertRowid);
+  realtime.toUser(userId, 'notification', { message, url: `/notifications/${id}` });
 }
 
 /** Handle a member can be @mentioned by: their first name, lower-case. */

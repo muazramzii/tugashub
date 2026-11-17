@@ -1,0 +1,66 @@
+<%- include('partials/head') %>
+<main class="chat-page" id="chat" data-channel="<%= channel.id %>" data-csrf="<%= csrf %>" data-admin="<%= isAdmin ? '1' : '' %>">
+  <nav class="chat-nav" aria-label="Conversations">
+    <div class="chat-nav-heading">Channels</div>
+    <% for (const c of rooms) { %>
+      <a href="/chat/<%= c.id %>" class="chat-link<%= c.id === channel.id ? ' active' : '' %>" data-channel-link="<%= c.id %>"<%= c.id === channel.id ? ' aria-current="page"' : '' %>>
+        <% if (c.kind === 'project') { %><span class="dot" style="background: <%= c.project_color %>" aria-hidden="true"></span><% } else { %><span class="hash" aria-hidden="true">#</span><% } %>
+        <span class="chat-link-name"><%= c.kind === 'general' ? 'general' : c.project_name %></span>
+        <span class="chat-unread" data-unread="<%= c.id %>" <%= c.unread && c.id !== channel.id ? '' : 'hidden' %>><%= c.unread %></span>
+      </a>
+    <% } %>
+    <div class="chat-nav-heading">Direct messages</div>
+    <% for (const p of people) { const href = p.channel_id ? `/chat/${p.channel_id}` : `/chat/dm/${p.id}`; const active = channel.kind === 'direct' && channel.other_id === p.id; %>
+      <a href="<%= href %>" class="chat-link<%= active ? ' active' : '' %>" <%- p.channel_id ? `data-channel-link="${p.channel_id}"` : '' %><%= active ? ' aria-current="page"' : '' %>>
+        <span class="presence-wrap"><span class="avatar avatar-sm" aria-hidden="true"><%= initials(p.name) %></span><span class="presence<%= online.has(p.id) ? ' online' : '' %>" data-presence="<%= p.id %>"></span></span>
+        <span class="chat-link-name"><%= p.name %></span>
+        <% if (p.channel_id) { %><span class="chat-unread" data-unread="<%= p.channel_id %>" <%= p.unread && !active ? '' : 'hidden' %>><%= p.unread %></span><% } %>
+      </a>
+    <% } %>
+    <% if (!people.length) { %><p class="small muted chat-nav-empty">Invite teammates from the <a href="/team">Team</a> page to message them.</p><% } %>
+  </nav>
+
+  <section class="chat-main" aria-label="<%= channel.title %>">
+    <header class="chat-head">
+      <div>
+        <h1 class="chat-title">
+          <% if (channel.kind === 'direct') { %>
+            <span class="presence-wrap"><span class="avatar" aria-hidden="true"><%= initials(channel.title) %></span><span class="presence<%= online.has(channel.other_id) ? ' online' : '' %>" data-presence="<%= channel.other_id %>"></span></span>
+          <% } %>
+          <%= channel.title %>
+        </h1>
+        <p class="small muted">
+          <% if (channel.kind === 'general') { %>Everyone in <%= workspace.name %>.
+          <% } else if (channel.kind === 'project') { %>Talk about <a href="/projects/<%= channel.project_id %>"><%= channel.project_name %></a>. Everyone in the workspace can read it.
+          <% } else { %>Private conversation between you and <%= channel.title %>.<% } %>
+        </p>
+      </div>
+      <span class="small muted chat-online"><span class="presence online" aria-hidden="true"></span><span data-online-count><%= online.size %></span> online</span>
+    </header>
+
+    <div class="chat-scroll" id="chat-scroll">
+      <% if (hasOlder) { %>
+        <button class="btn btn-ghost btn-sm load-older" type="button" id="load-older">Load older messages</button>
+      <% } %>
+      <ol class="msg-list" id="msg-list" aria-live="polite" aria-relevant="additions">
+        <%- include('partials/messages', { messages }) %>
+      </ol>
+      <div class="chat-empty" id="chat-empty" <%= messages.length ? 'hidden' : '' %>>
+        <p><strong>No messages yet.</strong> Say hello<%= channel.kind === 'direct' ? ` to ${channel.title.split(' ')[0]}` : ' to the team' %>.</p>
+      </div>
+    </div>
+
+    <button class="new-below" id="new-below" type="button" hidden>New messages ↓</button>
+    <div class="typing" id="typing" aria-live="polite"></div>
+
+    <form class="composer" id="composer" method="post" action="/chat/<%= channel.id %>/messages">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label class="sr-only" for="composer-input">Message <%= channel.title %></label>
+      <textarea id="composer-input" name="body" rows="1" maxlength="2000" required
+        placeholder="Message <%= channel.kind === 'direct' ? channel.title : channel.title %>"></textarea>
+      <button class="btn btn-primary" type="submit">Send</button>
+    </form>
+    <p class="composer-hint small muted">Enter to send, Shift + Enter for a new line. Type @ and a first name to mention someone.</p>
+  </section>
+</main>
+<%- include('partials/foot') %>

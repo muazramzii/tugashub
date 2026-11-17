@@ -158,6 +158,42 @@ const migrations = [
   );
   CREATE INDEX idx_notifications_user ON notifications(user_id, read_at, id DESC);
   `,
+
+  // v3: team chat (general, per-project and direct-message channels).
+  `
+  CREATE TABLE channels (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    kind         TEXT NOT NULL CHECK (kind IN ('general', 'project', 'direct')),
+    name         TEXT NOT NULL DEFAULT '',
+    project_id   INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    user_a       INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    user_b       INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (project_id),
+    UNIQUE (workspace_id, user_a, user_b),
+    CHECK (kind != 'direct' OR (user_a IS NOT NULL AND user_b IS NOT NULL AND user_a < user_b))
+  );
+  CREATE UNIQUE INDEX idx_channels_general ON channels(workspace_id) WHERE kind = 'general';
+
+  CREATE TABLE messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+    user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    body       TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX idx_messages_channel ON messages(channel_id, id);
+
+  CREATE TABLE channel_reads (
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    channel_id   INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+    last_read_id INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, channel_id)
+  );
+
+  ALTER TABLE notifications ADD COLUMN url TEXT;
+  `,
 ];
 
 function migrate() {

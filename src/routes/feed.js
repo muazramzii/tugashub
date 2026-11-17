@@ -26,7 +26,7 @@ router.get('/notifications/:id', (req, res) => {
   const n = q.notification.get(Number(req.params.id), req.user.id);
   if (!n) return res.redirect('/notifications');
   q.markRead.run(n.id);
-  res.redirect(n.task_id ? `/tasks/${n.task_id}` : '/notifications');
+  res.redirect(n.url || (n.task_id ? `/tasks/${n.task_id}` : '/notifications'));
 });
 
 router.post('/notifications/read-all', (req, res) => {

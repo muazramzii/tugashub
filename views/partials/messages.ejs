@@ -1,0 +1,16 @@
+<% for (const m of messages) {
+  const at = new Date(m.created_at.replace(' ', 'T') + 'Z');
+  const day = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
+%>
+<li class="msg" id="m<%= m.id %>" data-id="<%= m.id %>" data-user="<%= m.user_id || '' %>" data-ts="<%= at.toISOString() %>" data-day="<%= day %>">
+  <span class="avatar" aria-hidden="true"><%= initials(m.user_name || '?') %></span>
+  <div class="msg-body">
+    <div class="msg-head">
+      <strong class="msg-author"><%= m.user_name || 'Former member' %></strong>
+      <time datetime="<%= at.toISOString() %>" title="<%= at.toLocaleString('en-MY') %>"><%= at.toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit' }) %></time>
+      <button type="button" class="msg-del" data-delete-msg="<%= m.id %>" hidden aria-label="Delete message"><%- icon('x', 14) %></button>
+    </div>
+    <div class="msg-text"><%- m.html %></div>
+  </div>
+</li>
+<% } %>

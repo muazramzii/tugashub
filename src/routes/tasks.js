@@ -4,6 +4,7 @@ const { requireAuth, setFlash } = require('../middleware');
 const { can } = require('../permissions');
 const { logActivity, notify, findMentions, renderComment, quote } = require('../services/activity');
 const { STATUSES, PRIORITIES, DATE_RE, moveTask, workspaceLabels } = require('../services/tasks');
+const { boardChanged } = require('../realtime');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -107,6 +108,7 @@ router.post('/projects/:id/tasks', (req, res) => {
     notify({ userId: values.assignee, actorId: req.user.id, taskId: id, kind: 'assigned',
       message: `${req.user.name} assigned you ${quote(values.title)}` });
   });
+  boardChanged(project.id, req.user);
   res.redirect(`/projects/${project.id}`);
 });
 
@@ -160,6 +162,7 @@ router.post('/tasks/:id', loadTask, (req, res) => {
         message: `${req.user.name} assigned you ${quote(values.title)}` });
     }
   });
+  boardChanged(t.project_id, req.user);
   setFlash(req, 'success', 'Task saved.');
   res.redirect(`/tasks/${t.id}`);
 });
@@ -184,6 +187,7 @@ router.post('/tasks/:id/move', loadTask, (req, res) => {
     moveTask(req.task, status, index);
     if (status !== req.task.status) logStatus(req, req.task.title, status);
   });
+  boardChanged(req.task.project_id, req.user);
   res.json({ ok: true });
 });
 
@@ -193,6 +197,7 @@ router.post('/tasks/:id/delete', loadTask, (req, res) => {
     logActivity({ workspaceId: req.workspace.id, userId: req.user.id, projectId: req.task.project_id,
       action: 'task.deleted', summary: `deleted ${quote(req.task.title)}` });
   });
+  boardChanged(req.task.project_id, req.user);
   setFlash(req, 'success', 'Task deleted.');
   res.redirect(`/projects/${req.task.project_id}`);
 });
@@ -201,6 +206,7 @@ router.post('/tasks/:id/delete', loadTask, (req, res) => {
 router.post('/tasks/:id/checklist', loadTask, (req, res) => {
   const text = (req.body.text || '').trim().slice(0, 200);
   if (text) q.addItem.run(req.task.id, text, req.task.id);
+  boardChanged(req.task.project_id, req.user);
   res.redirect(`/tasks/${req.task.id}#checklist`);
 });
 
@@ -212,12 +218,14 @@ function loadItem(req, res, next) {
 
 router.post('/checklist/:itemId/toggle', loadItem, (req, res) => {
   q.toggleItem.run(req.item.id);
+  boardChanged(req.item.project_id, req.user);
   if (req.is('json')) return res.json({ ok: true, done: !req.item.done });
   res.redirect(`/tasks/${req.item.task_id}#checklist`);
 });
 
 router.post('/checklist/:itemId/delete', loadItem, (req, res) => {
   q.deleteItem.run(req.item.id);
+  boardChanged(req.item.project_id, req.user);
   res.redirect(`/tasks/${req.item.task_id}#checklist`);
 });
 
@@ -245,6 +253,7 @@ router.post('/tasks/:id/comments', loadTask, (req, res) => {
       }
     }
   });
+  boardChanged(t.project_id, req.user);
   res.redirect(`/tasks/${t.id}#comments`);
 });
 

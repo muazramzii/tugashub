@@ -1,8 +1,11 @@
 <% if (user) { %>
   </div>
 </div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<script src="/socket.io/socket.io.js"></script>
 <% } %>
-<div class="chart-tip" role="tooltip" hidden></div>
+<div class="chart-tip" hidden></div>
 <script src="/js/app.js"></script>
+<% if (typeof channel !== 'undefined' && channel && channel.kind) { %><script src="/js/chat.js"></script><% } %>
 </body>
 </html>

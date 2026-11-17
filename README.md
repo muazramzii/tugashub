@@ -25,6 +25,8 @@ Teams sign up, get their own workspace, invite members with a link, and run proj
 | @mentions | Type `@firstname`; the person is highlighted and notified. |
 | Notifications | Bell with unread count. You hear about assignments, mentions, comments on your tasks, and completions. |
 | Activity log | Every change is recorded: per task, per project, and workspace-wide with day grouping. |
+| Team chat | Real-time chat (Socket.IO): #general, one channel per project, and private direct messages. Typing indicator, online status, unread badges, @mentions. |
+| Live board | When a teammate changes a board, everyone viewing it sees the update instantly. |
 
 ### Analytics and admin
 | Feature | What it does |
@@ -68,7 +70,7 @@ All use the password `password123`. The demo workspace is on the Pro plan.
 | mei@demo.test | Member |
 | daniel@demo.test | Member |
 
-To reset all data, stop the server, delete the `data/` folder, and run `npm run seed` again.
+To reset all data back to the demo, run `npm run reset` (works while the server is running).
 
 ## Project structure
 

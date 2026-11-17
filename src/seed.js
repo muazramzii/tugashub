@@ -10,8 +10,18 @@ const { newInviteCode } = require('./routes/auth');
 
 const PASSWORD = 'password123';
 
+// `npm run reset` wipes every workspace first. This works while the server is
+// running (Windows locks the database file, so deleting it is not an option).
+if (process.argv.includes('--reset')) {
+  tx(() => {
+    db.exec('DELETE FROM workspaces'); // cascades to everything else
+    db.exec('DELETE FROM sqlite_sequence');
+  });
+  console.log('All data deleted.');
+}
+
 if (db.prepare('SELECT id FROM users WHERE email = ?').get('aina@demo.test')) {
-  console.log('Demo data already exists. Delete the data/ folder to reset it.');
+  console.log('Demo data already exists. Run "npm run reset" to start over.');
   process.exit(0);
 }
 
@@ -148,6 +158,41 @@ tx(() => {
     [U.mei, U.farid, 'Chapter 4: Implementation', 'mention', 'Farid Hakim mentioned you on “Chapter 4: Implementation”', null, 0.5],
   ];
   for (const [user, actor, title, kind, msg, readAt, days] of notifs) addNotif.run(user, actor, T[title], kind, msg, readAt, ago(days));
+
+  // ---- Chat ----
+  const addChannel = db.prepare('INSERT INTO channels (workspace_id, kind, name, project_id, user_a, user_b, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const general = Number(addChannel.run(ws, 'general', 'general', null, null, null, ago(60)).lastInsertRowid);
+  const channelOf = {};
+  for (const [key, p] of Object.entries(P)) {
+    const name = db.prepare('SELECT name FROM projects WHERE id = ?').get(p).name;
+    channelOf[key] = Number(addChannel.run(ws, 'project', name, p, null, null, ago(50)).lastInsertRowid);
+  }
+  const [a, b] = [U.aina, U.farid].sort((x, y) => x - y);
+  const dm = Number(addChannel.run(ws, 'direct', '', null, a, b, ago(5)).lastInsertRowid);
+
+  const addMessage = db.prepare('INSERT INTO messages (channel_id, user_id, body, created_at) VALUES (?, ?, ?, ?)');
+  const chats = [
+    [general, U.aina, 'Welcome to TugasHub everyone! Use #general for anything that is not about one project.', 6, 0],
+    [general, U.farid, 'Nice. Much better than our WhatsApp group 😄', 6, -0.1],
+    [general, U.mei, 'Agreed. Can we meet on Thursday at 3pm in the FSKTM lab?', 2, 0],
+    [general, U.daniel, 'Thursday works for me.', 2, -0.2],
+    [general, U.farid, 'Me too. I will book the lab.', 2, -0.3],
+    [general, U.aina, 'Reminder: progress presentation is in 9 days. Please update your tasks on the boards before Thursday.', 0, 5],
+    [general, U.mei, '@aina can we go through the slide outline together tomorrow?', 0, 3],
+    [channelOf.web, U.farid, 'Render deploy is working. Only the environment variables are left.', 1, 6],
+    [channelOf.web, U.daniel, 'Found the 404 on the footer links. Privacy and Terms pages do not exist yet.', 1, 4],
+    [channelOf.web, U.farid, '@daniel just remove those links for now, we can add the pages after the presentation.', 0, 7],
+    [channelOf.report, U.aina, 'Chapter 2 is done. @farid you can start on chapter 4 screenshots.', 3, 0],
+    [channelOf.report, U.farid, 'On it. Will finish the auth and board sections first.', 3, -0.5],
+    [channelOf.app, U.daniel, 'Uploaded the board and task detail screens to Figma.', 1, 2],
+    [dm, U.farid, 'Hi Aina, do you want me to handle the demo video as well?', 0, 2],
+  ];
+  for (const [channel, who, body, days, hours] of chats) addMessage.run(channel, who, body, ago(days, hours));
+
+  // Aina has read everything up to yesterday, so today's messages show as unread.
+  const markRead = db.prepare('INSERT INTO channel_reads (user_id, channel_id, last_read_id) VALUES (?, ?, ?)');
+  const readUpTo = (channel) => db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM messages WHERE channel_id = ? AND created_at < datetime('now', '-12 hours')").get(channel).id;
+  for (const channel of [general, ...Object.values(channelOf), dm]) markRead.run(U.aina, channel, readUpTo(channel));
 });
 
 console.log('Demo data created. Log in as aina@demo.test with password "password123". See README for all demo accounts.');

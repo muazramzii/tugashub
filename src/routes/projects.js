@@ -4,6 +4,7 @@ const { planFor } = require('../plans');
 const { requireAuth, requireRole, setFlash } = require('../middleware');
 const { logActivity, quote } = require('../services/activity');
 const { projectTasks, workspaceLabels, parseFilters, filterQuery } = require('../services/tasks');
+const { boardChanged } = require('../realtime');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -145,6 +146,7 @@ router.post('/projects/:id/edit', loadProject, (req, res) => {
     setFlash(req, 'error', error);
   } else {
     q.updateProject.run(values.name, values.description, values.color, req.project.id);
+    boardChanged(req.project.id, req.user);
     setFlash(req, 'success', 'Project updated.');
   }
   res.redirect(`/projects/${req.project.id}`);

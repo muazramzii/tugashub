@@ -84,7 +84,7 @@
     <% if (filtered) { %><a class="btn btn-ghost btn-sm" href="/projects/<%= project.id %>">Clear filters</a><% } %>
   </form>
 
-  <div class="board" data-csrf="<%= csrf %>">
+  <div class="board" data-csrf="<%= csrf %>" data-project="<%= project.id %>">
     <% for (const status of ['todo', 'doing', 'done']) { const list = columns[status]; %>
     <section class="column" data-status="<%= status %>" aria-label="<%= text.status[status] %>">
       <header class="column-head">

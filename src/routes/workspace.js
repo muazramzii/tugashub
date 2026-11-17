@@ -6,6 +6,7 @@ const { ROLE_LABELS, can } = require('../permissions');
 const { requireAuth, requireRole, setFlash } = require('../middleware');
 const { logActivity, mentionHandle } = require('../services/activity');
 const { newInviteCode } = require('./auth');
+const { kickUser } = require('../realtime');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -83,6 +84,7 @@ router.post('/team/:userId/remove', requireRole('admin'), (req, res) => {
       q.deleteUser.run(member.id);
       logActivity({ workspaceId: req.workspace.id, userId: req.user.id, action: 'member.removed', summary: `removed ${member.name} from the workspace` });
     });
+    kickUser(member.id);
     setFlash(req, 'success', `${member.name} was removed. Their tasks are now unassigned.`);
   }
   res.redirect('/team');

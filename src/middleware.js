@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { db } = require('./db');
 const { planFor } = require('./plans');
 const { can, atLeast } = require('./permissions');
+const { unreadTotal } = require('./services/chat');
 
 const findUser = db.prepare(`
   SELECT u.id, u.name, u.email, u.role, u.workspace_id,
@@ -29,6 +30,7 @@ function loadUser(req, res, next) {
       res.locals.can = can;
       res.locals.atLeast = atLeast;
       res.locals.unread = unreadCount.get(row.id).n;
+      res.locals.chatUnread = unreadTotal(row);
       res.locals.navProjects = sidebarProjects.all(row.workspace_id);
     } else {
       req.session = null; // user was deleted

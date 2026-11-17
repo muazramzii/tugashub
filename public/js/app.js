@@ -112,12 +112,105 @@ if (tip) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Real-time updates (Socket.IO). Pages work without it; this only adds live updates.
+const ME = Number(document.body.dataset.me) || null;
+const socket = ME && window.io ? window.io() : null;
+window.tugas = { socket, ME, toast, setBadge };
+
+/** Small pop-up message in the corner. */
+function toast(text, href) {
+  const box = document.getElementById('toasts');
+  if (!box) return;
+  const el = document.createElement(href ? 'a' : 'div');
+  el.className = 'toast';
+  el.textContent = text;
+  if (href) el.href = href;
+  box.appendChild(el);
+  setTimeout(() => el.classList.add('toast-out'), 4500);
+  setTimeout(() => el.remove(), 5000);
+}
+
+/** Set (or add to) a number badge; hides it at zero. */
+function setBadge(el, value, { add = false } = {}) {
+  if (!el) return;
+  const n = add ? (Number(el.textContent) || 0) + value : value;
+  el.textContent = n > 99 ? '99+' : String(n);
+  el.hidden = n <= 0;
+}
+
+if (socket) {
+  // Who is online: any element with data-presence="<userId>" gets an "online" class.
+  const online = new Set();
+  const paintPresence = () => {
+    document.querySelectorAll('[data-presence]').forEach((el) => {
+      el.classList.toggle('online', online.has(Number(el.dataset.presence)));
+    });
+    const count = document.querySelector('[data-online-count]');
+    if (count) count.textContent = online.size;
+  };
+  socket.on('presence:list', (ids) => { online.clear(); ids.forEach((id) => online.add(id)); online.add(ME); paintPresence(); });
+  socket.on('presence', ({ userId, online: on }) => { if (on) online.add(userId); else online.delete(userId); paintPresence(); });
+
+  // Live notifications: bump the bell and show a toast.
+  socket.on('notification', ({ message, url }) => {
+    const bell = document.querySelector('.bell');
+    let count = bell && bell.querySelector('.bell-count');
+    if (bell && !count) {
+      count = document.createElement('span');
+      count.className = 'bell-count';
+      count.textContent = '0';
+      bell.appendChild(count);
+    }
+    if (count) count.textContent = String((Number(count.textContent) || 0) + 1);
+    toast(message, url);
+  });
+
+  // New chat messages elsewhere: bump the sidebar badge (chat.js handles the open channel).
+  socket.on('chat:unread', ({ channelId, from }) => {
+    if (from === ME) return;
+    const chatPage = document.getElementById('chat');
+    const viewing = chatPage && Number(chatPage.dataset.channel) === channelId;
+    if (viewing && !document.hidden) return;
+    setBadge(document.querySelector('[data-chat-badge]'), 1, { add: true });
+    if (!viewing) setBadge(document.querySelector(`[data-unread="${channelId}"]`), 1, { add: true });
+  });
+}
+
 // Kanban drag and drop.
 const board = document.querySelector('.board');
 if (board) {
   const csrf = board.dataset.csrf;
   let dragging = null;
   let origin = null;
+  let refreshPending = false;
+
+  // Live board: when a teammate changes something, reload the columns in place.
+  if (socket) {
+    socket.on('connect', () => socket.emit('board:join', board.dataset.project));
+    socket.on('board:changed', ({ by, byName }) => {
+      if (by === ME) return;
+      if (dragging) { refreshPending = true; return; }
+      refreshBoard().then(() => toast(`${byName} updated the board`));
+    });
+  }
+
+  async function refreshBoard() {
+    const res = await fetch(location.href, { headers: { Accept: 'text/html' } });
+    if (!res.ok) return;
+    const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+    const fresh = doc.querySelector('.board');
+    if (fresh) board.innerHTML = fresh.innerHTML;
+    const hint = doc.querySelector('.board-hint');
+    if (hint) document.querySelector('.board-hint').innerHTML = hint.innerHTML;
+    // Re-bind the "+ Add task" buttons inside the columns.
+    board.querySelectorAll('[data-open]').forEach((btn) => btn.addEventListener('click', () => {
+      const dialog = document.getElementById(btn.dataset.open);
+      const select = dialog.querySelector('select[name="status"]');
+      if (select && btn.dataset.status) select.value = btn.dataset.status;
+      dialog.showModal();
+    }));
+  }
 
   board.addEventListener('dragstart', (e) => {
     const card = e.target.closest('.task-card[draggable="true"]');
@@ -134,6 +227,10 @@ if (board) {
     dragging.classList.remove('dragging');
     board.querySelectorAll('.column').forEach((c) => c.classList.remove('drop-target'));
     dragging = null;
+    if (refreshPending) {
+      refreshPending = false;
+      setTimeout(refreshBoard, 300); // after our own move has been saved
+    }
   });
 
   board.addEventListener('dragover', (e) => {

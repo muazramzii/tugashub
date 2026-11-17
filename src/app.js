@@ -38,6 +38,7 @@ Object.assign(app.locals, {
   csrf: '',
   path: '',
   query: {},
+  chatUnread: 0,
   PLANS,
   ROLE_LABELS,
   formatLimit,
@@ -65,13 +66,16 @@ Object.assign(app.locals, {
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-app.use(cookieSession({
+// Shared with the Socket.IO server so sockets know who is connected.
+const sessionMiddleware = cookieSession({
   name: 'tugashub.sid',
   keys: [sessionSecret()],
   maxAge: 7 * 24 * 60 * 60 * 1000,
   httpOnly: true,
   sameSite: 'lax',
-}));
+});
+app.sessionMiddleware = sessionMiddleware;
+app.use(sessionMiddleware);
 app.use(flash);
 app.use(loadUser);
 app.use(csrf);
@@ -83,6 +87,7 @@ app.get('/', (req, res) => {
 
 app.use(require('./routes/auth').router);
 app.use(require('./routes/feed').router);
+app.use(require('./routes/chat').router);
 app.use(require('./routes/views').router); // before tasks: owns /tasks and /tasks/export.csv
 app.use(require('./routes/projects').router);
 app.use(require('./routes/tasks').router);

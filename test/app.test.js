@@ -11,20 +11,26 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tugashub-test-'));
 process.env.DB_PATH = path.join(tmp, 'test.db');
 process.env.SESSION_SECRET = 'test-secret';
 
+const http = require('http');
+const { io: connect } = require('socket.io-client');
 const app = require('../src/app');
 const { db } = require('../src/db');
+const { attachRealtime } = require('../src/realtime');
 
 let server;
 let base;
+let ioServer;
 
 before(async () => {
-  server = app.listen(0);
+  server = http.createServer(app);
+  ioServer = attachRealtime(server, app.sessionMiddleware);
+  server.listen(0);
   await new Promise((r) => server.once('listening', r));
   base = `http://localhost:${server.address().port}`;
 });
 
-after(() => {
-  server.close();
+after(async () => {
+  await new Promise((r) => ioServer.close(r)); // also closes the HTTP server
   db.close();
   fs.rmSync(tmp, { recursive: true, force: true });
 });
@@ -305,7 +311,137 @@ test('migration upgrades a version 1 database without losing data', () => {
     }));`], { cwd: path.join(__dirname, '..'), env: { ...process.env, DB_PATH: file } }).toString();
 
   const result = JSON.parse(out);
-  assert.equal(result.version, 2);
+  assert.equal(result.version, 3);
   assert.deepEqual({ ...result.task }, { title: 'Old done task', assignee_id: 1, has_completed: 1 });
   assert.equal(result.role, 'admin');
+});
+
+// ---------------------------------------------------------------------------
+// Chat and real-time
+
+/** Open a Socket.IO connection as this client's logged-in user. */
+function socketFor(client, headers = {}) {
+  const cookie = [...client.cookies].map(([k, v]) => `${k}=${v}`).join('; ');
+  return connect(base, { transports: ['websocket'], extraHeaders: { cookie, ...headers }, reconnection: false, forceNew: true });
+}
+
+function once(sock, event, ms = 3000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`timed out waiting for "${event}"`)), ms);
+    sock.once(event, (data) => { clearTimeout(timer); resolve(data); });
+  });
+}
+
+const ack = (sock, event, arg) => new Promise((resolve) => sock.emit(event, arg, resolve));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function team(prefix) {
+  const owner = new Client();
+  const o = await owner.signup(`${prefix} Owner`, `${prefix.toLowerCase()}-owner@test.test`, { workspace: `${prefix} Co` });
+  const invite = db.prepare('SELECT invite_code FROM workspaces WHERE id = ?').get(o.workspace_id).invite_code;
+  const member = new Client();
+  const m = await member.signup(`${prefix} Member`, `${prefix.toLowerCase()}-member@test.test`, { invite });
+  return { owner, o, member, m };
+}
+
+const say = (client, channelId, body) => client.req(`/chat/${channelId}/messages`, { method: 'POST', json: { body } });
+
+test('chat: #general works, HTML is escaped, and other workspaces are locked out', async () => {
+  const { owner, member } = await team('Gen');
+  const general = idFrom(await owner.get('/chat'));
+
+  const sent = await say(owner, general, 'Hello <b>team</b>');
+  assert.equal(sent.status, 201);
+  const page = await member.get(`/chat/${general}`);
+  assert.match(page.body_, /Hello &lt;b&gt;team&lt;\/b&gt;/);
+  assert.equal((await say(owner, general, '   ')).status, 400);
+
+  const outsider = new Client();
+  await outsider.signup('Gen Outsider', 'gen-out@test.test', { workspace: 'Other Co' });
+  assert.equal((await outsider.get(`/chat/${general}`)).status, 404);
+  assert.equal((await say(outsider, general, 'sneaky')).status, 404);
+});
+
+test('chat: direct messages are private and @mentions notify', async () => {
+  const { owner, o, member, m } = await team('Dm');
+  const third = new Client();
+  const invite = db.prepare('SELECT invite_code FROM workspaces WHERE id = ?').get(o.workspace_id).invite_code;
+  await third.signup('Dm Third', 'dm-third@test.test', { invite });
+
+  const dmId = idFrom(await owner.get(`/chat/dm/${m.id}`));
+  assert.equal((await member.get(`/chat/${dmId}`)).status, 200);
+  assert.equal((await third.get(`/chat/${dmId}`)).status, 404);
+  assert.equal(idFrom(await member.get(`/chat/dm/${o.id}`)), dmId, 'same DM channel from both sides');
+
+  await say(owner, dmId, '@dm can you check this?');
+  const n = db.prepare("SELECT * FROM notifications WHERE user_id = ? AND kind = 'mention'").get(m.id);
+  assert.equal(n.url, `/chat/${dmId}`);
+  assert.equal(location(await member.get(`/notifications/${n.id}`)), `/chat/${dmId}`);
+});
+
+test('chat: unread badge counts new messages and clears when read', async () => {
+  const { owner, member } = await team('Unread');
+  const general = idFrom(await owner.get('/chat'));
+  await say(owner, general, 'one');
+  await say(owner, general, 'two');
+  const badge = async () => Number((await member.get('/dashboard')).body_.match(/data-chat-badge[^>]*>(\d+)</)[1]);
+  assert.equal(await badge(), 2);
+  await member.get(`/chat/${general}`);
+  assert.equal(await badge(), 0);
+});
+
+test('realtime: sockets need a login and our own origin', async () => {
+  const anon = connect(base, { transports: ['websocket'], reconnection: false, forceNew: true });
+  assert.match((await once(anon, 'connect_error')).message, /unauthorized/);
+  anon.close();
+
+  const c = new Client();
+  await c.signup('Origin Check', 'origin@test.test', { workspace: 'Origin Co' });
+  const evil = socketFor(c, { origin: 'http://evil.example' });
+  await once(evil, 'connect_error');
+  evil.close();
+});
+
+test('realtime: messages, board changes and notifications arrive live, only for the right people', async () => {
+  const { owner, o, member, m } = await team('Live');
+  const general = idFrom(await owner.get('/chat'));
+  const projectId = await newProject(owner, 'Live board');
+
+  const sock = socketFor(member);
+  await once(sock, 'connect');
+  assert.equal(await ack(sock, 'channel:join', general), true);
+  assert.equal(await ack(sock, 'board:join', projectId), true);
+
+  const outsider = new Client();
+  await outsider.signup('Live Outsider', 'live-out@test.test', { workspace: 'Elsewhere' });
+  const spy = socketFor(outsider);
+  await once(spy, 'connect');
+  assert.equal(await ack(spy, 'channel:join', general), false);
+  assert.equal(await ack(spy, 'board:join', projectId), false);
+  const leaked = [];
+  for (const e of ['message:new', 'board:changed', 'chat:unread']) spy.on(e, () => leaked.push(e));
+
+  const msg = once(sock, 'message:new');
+  await say(owner, general, 'live hello');
+  assert.match((await msg).html, /live hello/);
+
+  const changed = once(sock, 'board:changed');
+  const notified = once(sock, 'notification');
+  await owner.post(`/projects/${projectId}/tasks`, { title: 'Live task', assignee_id: m.id });
+  assert.equal((await changed).by, o.id);
+  assert.match((await notified).message, /assigned you “Live task”/);
+
+  await sleep(200);
+  assert.deepEqual(leaked, []);
+  sock.close();
+  spy.close();
+});
+
+test('realtime: removing a member disconnects their open tabs', async () => {
+  const { owner, member, m } = await team('Kick');
+  const sock = socketFor(member);
+  await once(sock, 'connect');
+  const gone = once(sock, 'disconnect');
+  await owner.post(`/team/${m.id}/remove`);
+  assert.equal(await gone, 'io server disconnect');
 });
