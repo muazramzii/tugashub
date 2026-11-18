@@ -41,8 +41,213 @@ Teams sign up, get their own workspace, invite members with a link, and run proj
 - **Multi-tenancy:** every query is scoped to the user's workspace.
 - **Security:** bcrypt passwords, CSRF tokens on every form and API call, signed HTTP-only cookies, HTML-escaped user content, CSV formula-injection protection.
 - **Database migrations:** versioned with `PRAGMA user_version`, so existing databases upgrade automatically and safely.
-- **Automated tests:** 11 end-to-end tests that boot the real app on a throwaway database (`npm test`).
+- **Real-time:** Socket.IO pushes chat messages, presence, notifications and board changes. Sockets only receive; every change still goes through a checked HTTP route.
+- **Automated tests:** 17 end-to-end tests that boot the real app on a throwaway database (`npm test`).
 - **Accessible, responsive UI:** keyboard-usable controls, light and dark mode, works on phones, no JavaScript framework.
+
+## How it works
+
+### 1. System architecture
+
+The browser talks to one Node.js server in two ways: normal HTTP requests for pages and changes, and a WebSocket that the server uses to push live updates. All data lives in a single SQLite file.
+
+```mermaid
+flowchart TB
+  subgraph Browser["Browser"]
+    UI["Pages rendered by the server<br/>style.css"]
+    JS["app.js and chat.js<br/>drag and drop, filters, chat"]
+    SC["Socket.IO client"]
+  end
+
+  subgraph Server["Node.js server with Express"]
+    MW["Middleware<br/>session, CSRF, login, roles, plan limits"]
+    RO["Routes<br/>auth, projects, tasks, search, chat, team, billing"]
+    SV["Services<br/>tasks, activity and notifications, chat"]
+    VW["EJS views"]
+    RT["realtime.js<br/>Socket.IO server"]
+  end
+
+  DB[("SQLite database<br/>data/app.db")]
+
+  UI -- "HTTP GET and POST" --> MW
+  JS -- "fetch with CSRF token" --> MW
+  MW --> RO
+  RO --> SV
+  SV --> DB
+  RO --> VW
+  VW -- "HTML" --> UI
+  SV -- "emit after commit" --> RT
+  RT -- "WebSocket push" --> SC
+  SC --> JS
+```
+
+### 2. User workflow
+
+How a team uses TugasHub from sign-up to finished work.
+
+```mermaid
+flowchart TD
+  START(["Visitor opens TugasHub"]) --> ACC{"Has an account?"}
+  ACC -- "No" --> SIGNUP["Sign up"]
+  ACC -- "Yes" --> LOGIN["Log in"]
+  SIGNUP --> INV{"Opened an invite link?"}
+  INV -- "Yes" --> JOIN["Join the team workspace as Member"]
+  INV -- "No" --> CREATE["Create a new workspace as Owner<br/>Free plan with default labels"]
+  JOIN --> DASH["Dashboard"]
+  CREATE --> DASH
+  LOGIN --> DASH
+
+  DASH --> TEAM["Team page<br/>share invite link, set Admin or Member"]
+  DASH --> PROJ["Create a project"]
+  PROJ --> BOARD["Kanban board"]
+  BOARD --> TASK["Add a task<br/>priority, assignee, due date, labels"]
+  TASK --> WORK["Work on the task<br/>checklist, comments, @mentions"]
+  WORK --> MOVE["Drag the card<br/>To do, then In progress, then Done"]
+  MOVE --> LOG["Activity log and notifications<br/>teammates see the board update live"]
+
+  DASH --> CHAT["Team chat<br/>general, project channels, direct messages"]
+  DASH --> PLAN["Calendar and task search"]
+  DASH --> PRO{"Workspace on Pro?"}
+  PRO -- "Yes" --> REP["Reports, charts and CSV export"]
+  PRO -- "No" --> BILL["Billing: upgrade to Pro"]
+  BILL --> REP
+  LOG --> ARCH["Archive the project when finished"]
+```
+
+### 3. Task lifecycle
+
+Every task moves through three columns. Moving it, by dragging the card or editing its status, updates the board for everyone and is written to the activity log.
+
+```mermaid
+stateDiagram-v2
+  state "To do" as todo
+  state "In progress" as doing
+  state "Done" as done
+
+  [*] --> todo: Task created, assignee notified
+  todo --> doing: Work started
+  doing --> done: Completed, completion time saved, creator notified
+  todo --> done: Completed
+  done --> doing: Reopened, completion time cleared
+  doing --> todo: Moved back
+  done --> [*]: Task deleted or project archived
+```
+
+### 4. What happens on every change
+
+Example: a member drags a card to another column. Every change in the app follows the same checks.
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant M as Middleware
+  participant R as Route
+  participant D as SQLite
+  participant S as Socket.IO
+
+  B->>M: POST /tasks/42/move with session cookie and CSRF token
+  M->>M: Load the user and workspace from the session
+  M->>M: Reject the request if the CSRF token is wrong
+  M->>R: Pass the request on
+  R->>D: Find task 42 inside this user's workspace only
+  alt Task belongs to another workspace
+    R-->>B: 404 Not found
+  else Allowed
+    R->>D: One transaction: move task, log activity, create notifications
+    R-->>B: 200 OK
+    R->>S: Emit board changed, after the commit
+    S-->>B: Teammates viewing the board reload it live
+  end
+```
+
+### 5. Real-time chat
+
+Messages are saved over HTTP, then pushed to everyone allowed to see them.
+
+```mermaid
+sequenceDiagram
+  actor F as Farid
+  participant S as Server
+  participant D as SQLite
+  actor A as Aina
+
+  A->>S: Open the chat page, socket joins the channel room
+  F->>S: Typing event over the socket
+  S-->>A: Show "Farid is typing"
+  F->>S: POST /chat/1/messages with CSRF token
+  S->>D: Save the message and mark it read for Farid
+  S->>D: Create a notification for each @mentioned member
+  S-->>F: 201 Created with the rendered message
+  S-->>A: New message appears instantly
+  S-->>A: Bell and pop-up if Aina was mentioned
+  Note over S,A: Members on other pages get an unread badge instead
+```
+
+### 6. Database design
+
+```mermaid
+erDiagram
+  WORKSPACES ||--o{ USERS : "has members"
+  WORKSPACES ||--o{ PROJECTS : owns
+  WORKSPACES ||--o{ LABELS : defines
+  WORKSPACES ||--o{ CHANNELS : has
+  WORKSPACES ||--o{ ACTIVITY : logs
+  WORKSPACES ||--o{ BILLING_EVENTS : records
+  PROJECTS ||--o{ TASKS : contains
+  PROJECTS |o--o| CHANNELS : "has chat"
+  USERS |o--o{ TASKS : "assigned to"
+  TASKS ||--o{ CHECKLIST_ITEMS : has
+  TASKS ||--o{ COMMENTS : has
+  TASKS ||--o{ TASK_LABELS : "tagged with"
+  LABELS ||--o{ TASK_LABELS : "used by"
+  USERS ||--o{ COMMENTS : writes
+  USERS ||--o{ NOTIFICATIONS : receives
+  CHANNELS ||--o{ MESSAGES : contains
+  USERS ||--o{ MESSAGES : sends
+  CHANNELS ||--o{ CHANNEL_READS : "read position"
+  USERS ||--o{ CHANNEL_READS : tracks
+
+  WORKSPACES {
+    int id PK
+    string name
+    string plan "free or pro"
+    string invite_code
+  }
+  USERS {
+    int id PK
+    int workspace_id FK
+    string email
+    string role "owner, admin or member"
+  }
+  PROJECTS {
+    int id PK
+    int workspace_id FK
+    string name
+    datetime archived_at
+  }
+  TASKS {
+    int id PK
+    int project_id FK
+    string status "todo, doing or done"
+    string priority
+    int assignee_id FK
+    date due_date
+    datetime completed_at
+  }
+  CHANNELS {
+    int id PK
+    string kind "general, project or direct"
+    int project_id FK
+    int user_a FK
+    int user_b FK
+  }
+  MESSAGES {
+    int id PK
+    int channel_id FK
+    int user_id FK
+    string body
+  }
+```
 
 ## Requirements
 
@@ -115,8 +320,11 @@ task_labels     (task_id, label_id)
 checklist_items (id, task_id, text, done, position, created_at)
 comments        (id, task_id, user_id, body, created_at)
 activity        (id, workspace_id, user_id, project_id, task_id, action, summary, created_at)
-notifications   (id, user_id, actor_id, task_id, kind, message, read_at, created_at)
+notifications   (id, user_id, actor_id, task_id, kind, message, url, read_at, created_at)
 billing_events  (id, workspace_id, action, plan, amount, created_at)
+channels        (id, workspace_id, kind, name, project_id, user_a, user_b, created_at)
+messages        (id, channel_id, user_id, body, created_at)
+channel_reads   (user_id, channel_id, last_read_id)
 ```
 
 Deleting a workspace, project or task cascades to its children. Removing a member leaves their tasks unassigned and keeps their comments and history.
