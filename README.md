@@ -277,11 +277,54 @@ All use the password `password123`. The demo workspace is on the Pro plan.
 
 To reset all data back to the demo, run `npm run reset` (works while the server is running).
 
+## Deploy
+
+TugasHub needs a host that keeps a **server running** (for live chat) and gives it a **disk that survives restarts** (for the SQLite file). Serverless hosts such as Vercel or Netlify do not fit. [Railway](https://railway.com) does, and deploys straight from GitHub.
+
+### Railway
+
+1. Create a project from this GitHub repository. Railway detects Node and runs `npm start`.
+2. Add a **volume** to the service, mounted at `/data`.
+3. Set these variables:
+
+   | Variable | Value | Why |
+   |---|---|---|
+   | `NODE_ENV` | `production` | Trusts the HTTPS proxy and sends the login cookie over HTTPS only |
+   | `DB_PATH` | `/data/app.db` | Keeps the database on the volume |
+   | `SESSION_SECRET` | a long random string | Keeps people logged in across redeploys |
+   | `SEED_DEMO` | `1` (optional) | Fills an empty database with the demo team on first start |
+
+4. Set the health check path to `/health`.
+5. Generate a domain, or add your own (below).
+
+Every push to `main` redeploys. The data stays on the volume.
+
+### Custom domain on Cloudflare
+
+1. In Railway, open the service **Settings → Networking → Custom Domain** and enter e.g. `tugashub.example.com`. Railway shows a CNAME target.
+2. In Cloudflare **DNS**, add a `CNAME` record: name `tugashub`, target the value from Railway. Add any TXT record Railway asks for.
+3. In Cloudflare **SSL/TLS**, set the mode to **Full**. "Flexible" causes a redirect loop.
+
+WebSockets work through Cloudflare without extra settings.
+
+### Backup for demo day: Cloudflare Tunnel
+
+Runs the app on your own laptop and gives it a public HTTPS address on your domain. The link only works while the laptop and the app are running.
+
+```bash
+cloudflared tunnel login
+cloudflared tunnel create tugashub
+cloudflared tunnel route dns tugashub demo.example.com
+cloudflared tunnel run --url http://localhost:3000 tugashub
+```
+
+> The demo password is public in this README. On a live site anyone can log in as the demo owner, so treat the demo workspace as a sandbox and run `npm run reset` (or redeploy with a fresh volume) when needed.
+
 ## Project structure
 
 ```
 src/
-  server.js              Starts the HTTP server
+  server.js              Starts the HTTP server (auto-seeds when SEED_DEMO=1)
   app.js                 Express app: sessions, view helpers, route mounting
   db.js                  SQLite connection and versioned migrations
   plans.js               Free / Pro plan limits and features

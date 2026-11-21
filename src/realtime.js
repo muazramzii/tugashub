@@ -23,7 +23,9 @@ function sameOrigin(req) {
   const origin = req.headers.origin;
   if (!origin) return true; // non-browser clients do not send cookies cross-site
   try {
-    return new URL(origin).host === req.headers.host;
+    const host = new URL(origin).host;
+    // Some proxies rewrite Host and pass the public name in X-Forwarded-Host.
+    return host === req.headers.host || host === req.headers['x-forwarded-host'];
   } catch {
     return false;
   }

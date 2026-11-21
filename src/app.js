@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const express = require('express');
 const cookieSession = require('cookie-session');
 
-require('./db'); // create / migrate tables on first load
+const { db } = require('./db'); // creates / migrates tables on first load
 const { loadUser, flash, csrf } = require('./middleware');
 const { PLANS, formatLimit } = require('./plans');
 const { ROLE_LABELS } = require('./permissions');
@@ -28,6 +28,11 @@ const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.disable('x-powered-by');
+
+const production = process.env.NODE_ENV === 'production';
+// Hosts like Railway sit behind an HTTPS proxy. Trusting it makes req.protocol
+// report "https", which secure cookies and invite links rely on.
+if (production) app.set('trust proxy', 1);
 
 Object.assign(app.locals, {
   appName: 'TugasHub',
@@ -64,6 +69,13 @@ Object.assign(app.locals, {
 });
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// Used by the hosting platform to check the app is up (no session needed).
+app.get('/health', (req, res) => {
+  db.prepare('SELECT 1').get();
+  res.type('text').send('ok');
+});
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 // Shared with the Socket.IO server so sockets know who is connected.
@@ -73,6 +85,7 @@ const sessionMiddleware = cookieSession({
   maxAge: 7 * 24 * 60 * 60 * 1000,
   httpOnly: true,
   sameSite: 'lax',
+  secure: production, // only send the login cookie over HTTPS when live
 });
 app.sessionMiddleware = sessionMiddleware;
 app.use(sessionMiddleware);
