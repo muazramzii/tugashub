@@ -15,6 +15,9 @@
   const newBelow = document.getElementById('new-below');
   let olderBtn = document.getElementById('load-older');
   let unseen = 0; // messages that arrived while the tab was hidden
+  // Phones and tablets: Enter adds a new line (the keyboard has no Shift+Enter),
+  // the Send button sends, and the keyboard is not opened on page load.
+  const touch = window.matchMedia('(pointer: coarse)').matches;
 
   const post = (url, data) => fetch(url, {
     method: 'POST',
@@ -92,7 +95,7 @@
       window.tugas.toast(err.message || 'Could not send the message. Check your connection.');
     } finally {
       input.disabled = false;
-      input.focus();
+      if (!touch) input.focus();
     }
   }
 
@@ -101,7 +104,7 @@
     send();
   });
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !touch) {
       e.preventDefault();
       send();
     }
@@ -109,7 +112,8 @@
 
   function autosize() {
     input.style.height = 'auto';
-    input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
+    const border = input.offsetHeight - input.clientHeight; // height includes the border
+    input.style.height = `${Math.min(input.scrollHeight + border, 160)}px`;
   }
 
   let lastTyping = 0;
@@ -121,8 +125,37 @@
     }
   });
 
+  // ---- Conversation list (small screens) ----
+  const openBtn = root.querySelector('[data-chat-list-open]');
+  const othersBadge = root.querySelector('[data-chat-others]');
+  const nav = document.getElementById('chat-nav');
+  function setList(open) {
+    root.classList.toggle('list-open', open);
+    openBtn.setAttribute('aria-expanded', String(open));
+    if (open) (nav.querySelector('.chat-link.active') || nav.querySelector('.chat-link'))?.focus();
+    else openBtn.focus();
+  }
+  /** Unread messages in every other conversation, shown on the back button. */
+  function paintOthers() {
+    const total = [...nav.querySelectorAll('[data-unread]')].filter((el) => !el.hidden)
+      .reduce((n, el) => n + (Number(el.textContent) || 0), 0);
+    setBadge(othersBadge, total);
+  }
+  openBtn.addEventListener('click', () => setList(true));
+  root.querySelector('[data-chat-list-close]').addEventListener('click', () => setList(false));
+  root.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && root.classList.contains('list-open')) setList(false);
+  });
+  paintOthers();
+
   // ---- Deleting ----
   list.addEventListener('click', async (e) => {
+    // Touch screens have no hover: tapping a message shows its time and delete button.
+    if (touch && !e.target.closest('a, button')) {
+      const msg = e.target.closest('.msg');
+      list.querySelectorAll('.msg.show-actions').forEach((m) => { if (m !== msg) m.classList.remove('show-actions'); });
+      if (msg) msg.classList.toggle('show-actions');
+    }
     const btn = e.target.closest('[data-delete-msg]');
     if (!btn || !window.confirm('Delete this message?')) return;
     const res = await post(`/chat/messages/${btn.dataset.deleteMsg}/delete`, {});
@@ -178,6 +211,7 @@
       if (document.hidden) unseen++;
       else markRead();
     });
+    socket.on('chat:unread', paintOthers); // app.js has already bumped the per-channel badge
     socket.on('message:deleted', ({ id }) => {
       document.getElementById(`m${id}`)?.remove();
       normalize();
@@ -202,5 +236,5 @@
   normalize();
   autosize();
   toBottom();
-  input.focus();
+  if (!touch) input.focus();
 })();

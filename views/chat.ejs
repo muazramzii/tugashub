@@ -1,6 +1,10 @@
 <%- include('partials/head') %>
 <main class="chat-page" id="chat" data-channel="<%= channel.id %>" data-csrf="<%= csrf %>" data-admin="<%= isAdmin ? '1' : '' %>">
-  <nav class="chat-nav" aria-label="Conversations">
+  <nav class="chat-nav" id="chat-nav" aria-label="Conversations">
+    <div class="chat-nav-top">
+      <h2>Chats</h2>
+      <button class="icon-btn" type="button" data-chat-list-close aria-label="Back to <%= channel.title %>"><%- icon('x') %></button>
+    </div>
     <div class="chat-nav-heading">Channels</div>
     <% for (const c of rooms) { %>
       <a href="/chat/<%= c.id %>" class="chat-link<%= c.id === channel.id ? ' active' : '' %>" data-channel-link="<%= c.id %>"<%= c.id === channel.id ? ' aria-current="page"' : '' %>>
@@ -22,7 +26,11 @@
 
   <section class="chat-main" aria-label="<%= channel.title %>">
     <header class="chat-head">
-      <div>
+      <button class="icon-btn chat-list-btn" type="button" data-chat-list-open aria-controls="chat-nav" aria-expanded="false" aria-label="All chats">
+        <%- icon('chevronLeft', 22) %>
+        <span class="chat-unread" data-chat-others hidden></span>
+      </button>
+      <div class="chat-head-text">
         <h1 class="chat-title">
           <% if (channel.kind === 'direct') { %>
             <span class="presence-wrap"><span class="avatar" aria-hidden="true"><%= initials(channel.title) %></span><span class="presence<%= online.has(channel.other_id) ? ' online' : '' %>" data-presence="<%= channel.other_id %>"></span></span>
