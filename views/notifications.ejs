@@ -20,7 +20,7 @@
     <% for (const n of notifications) { %>
     <li>
       <a href="/notifications/<%= n.id %>" class="notif <%= n.read_at ? '' : 'unread' %>">
-        <span class="notif-icon notif-<%= n.kind %>" aria-hidden="true"><%- icon({ assigned: 'tasks', mention: 'comment', comment: 'comment', completed: 'check' }[n.kind] || 'bell', 16) %></span>
+        <span class="notif-icon notif-<%= n.kind %>" aria-hidden="true"><%- icon({ assigned: 'tasks', mention: 'comment', comment: 'comment', completed: 'check', meeting: 'video' }[n.kind] || 'bell', 16) %></span>
         <span class="notif-text"><%= n.message %><span class="activity-time"><%= timeAgo(n.created_at) %></span></span>
         <% if (!n.read_at) { %><span class="unread-dot" aria-label="Unread"></span><% } %>
       </a>

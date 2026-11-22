@@ -1,0 +1,101 @@
+<%- include('partials/head') %>
+<main class="page">
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="/meetings"><%- icon('video', 15) %> Meetings</a>
+    <span aria-hidden="true">/</span>
+    <span><%= meeting.title %></span>
+  </nav>
+
+  <div class="page-head">
+    <div>
+      <h1><%= meeting.title %></h1>
+      <p class="muted">
+        <% if (meeting.ended_at) { %><span class="ended-pill">Ended</span><% } else { %><span class="live-pill"><span class="live-dot" aria-hidden="true"></span>Live</span><% } %>
+        <% if (meeting.project_name) { %><a href="/projects/<%= meeting.project_id %>"><%= meeting.project_name %></a> · <% } %>
+        Started by <%= meeting.starter_name || 'a former member' %>, <%= timeAgo(meeting.created_at) %>
+        <% if (meeting.ended_at) { %> · lasted <%= meeting.minutes %> min<% } %>
+      </p>
+    </div>
+    <% if (!meeting.ended_at) { %>
+    <div class="page-actions">
+      <a class="btn btn-primary" href="<%= joinUrl %>" target="_blank" rel="noopener noreferrer"><%- icon('video', 16) %> Join video call</a>
+      <% if (canEnd) { %>
+      <form method="post" action="/meetings/<%= meeting.id %>/end" data-confirm="End this meeting for everyone? The minutes and action items stay here.">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <button class="btn btn-ghost" type="submit">End meeting</button>
+      </form>
+      <% } %>
+    </div>
+    <% } %>
+  </div>
+
+  <% if (!meeting.ended_at) { %>
+  <div class="card meeting-join">
+    <p class="small muted">The call opens on Jitsi Meet in a new tab. Share this page or the link below with teammates. Anyone with the link can join, so keep it inside the team. The first person in may be asked to sign in to Jitsi to start the room.</p>
+    <div class="copy-row">
+      <input id="join-url" value="<%= joinUrl.split('#')[0] %>" readonly aria-label="Video call link">
+      <button class="btn btn-ghost" type="button" data-copy="#join-url">Copy link</button>
+    </div>
+  </div>
+  <% } %>
+
+  <div class="task-grid">
+    <section class="card" id="minutes" aria-labelledby="minutes-heading">
+      <form method="post" action="/meetings/<%= meeting.id %>/notes" class="stack">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <div class="section-head">
+          <h2 id="minutes-heading">Minutes</h2>
+          <% if (meeting.notes_updated_at) { %><span class="small muted">Saved by <%= meeting.notes_editor || 'someone' %>, <%= timeAgo(meeting.notes_updated_at) %></span><% } %>
+        </div>
+        <label class="sr-only" for="notes">Meeting minutes</label>
+        <textarea id="notes" name="notes" rows="16" maxlength="20000" placeholder="Agenda, decisions, who said what. Anyone in the team can edit."><%= meeting.notes %></textarea>
+        <div><button class="btn btn-primary" type="submit">Save minutes</button></div>
+      </form>
+    </section>
+
+    <aside class="task-side" id="actions" aria-label="Action items">
+      <section class="card stack">
+        <h2>Action items</h2>
+        <p class="small muted">Each action item becomes a task on a project board, linked back to this meeting.</p>
+        <% if (!projects.length) { %>
+          <div class="empty"><p>Create a project first. Action items need a board to go on.</p></div>
+        <% } else { %>
+        <form method="post" action="/meetings/<%= meeting.id %>/tasks" class="stack">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <label>What needs doing <input name="title" required maxlength="200" placeholder="e.g. Send the slides to Dr. Lim"></label>
+          <label>Project
+            <select name="project_id" required>
+              <% for (const p of projects) { %><option value="<%= p.id %>" <%= defaultProject === p.id ? 'selected' : '' %>><%= p.name %></option><% } %>
+            </select>
+          </label>
+          <label>Assignee
+            <select name="assignee_id">
+              <option value="">Unassigned</option>
+              <% for (const m of members) { %><option value="<%= m.id %>"><%= m.name %></option><% } %>
+            </select>
+          </label>
+          <label>Due date <span class="optional">optional</span><input type="date" name="due_date"></label>
+          <button class="btn btn-primary" type="submit"><%- icon('plus', 16) %> Create task</button>
+        </form>
+        <% } %>
+      </section>
+
+      <section class="card">
+        <h2 class="side-heading">Tasks from this meeting</h2>
+        <% if (!tasks.length) { %>
+          <p class="small muted">None yet.</p>
+        <% } else { %>
+        <ul class="meeting-tasks">
+          <% for (const t of tasks) { %>
+          <li>
+            <a href="/tasks/<%= t.id %>"><span class="status-dot status-<%= t.status %>" aria-hidden="true"></span><%= t.title %></a>
+            <span class="small muted"><%= text.status[t.status] %> · <%= t.assignee_name || 'Unassigned' %><% if (t.due_date) { %> · due <%= fmtDate(t.due_date, { day: 'numeric', month: 'short' }) %><% } %> · <%= t.project_name %></span>
+          </li>
+          <% } %>
+        </ul>
+        <% } %>
+      </section>
+    </aside>
+  </div>
+</main>
+<%- include('partials/foot') %>

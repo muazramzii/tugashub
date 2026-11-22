@@ -189,6 +189,24 @@ tx(() => {
   ];
   for (const [channel, who, body, days, hours] of chats) addMessage.run(channel, who, body, ago(days, hours));
 
+  // A past meeting with minutes; two of its action items are tasks on the boards.
+  const minutes = [
+    'Agenda: progress check before presentation day.',
+    '',
+    '- Report: chapters 1 to 3 done, chapter 4 in progress (Farid).',
+    '- Demo: Mei records the video after the board screens are final.',
+    '- Decision: rehearse with Dr. Lim before the presentation.',
+    '',
+    'Action items are on the boards.',
+  ].join('\n');
+  const meetingId = Number(db.prepare(`INSERT INTO meetings (workspace_id, project_id, title, room, started_by, notes, notes_updated_by, notes_updated_at, created_at, ended_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(ws, P.demo, 'Weekly progress check', `tugashub-${require('crypto').randomBytes(10).toString('hex')}`,
+      U.aina, minutes, U.aina, ago(3, -1), ago(3), ago(3, -0.75)).lastInsertRowid);
+  db.prepare('UPDATE tasks SET meeting_id = ? WHERE id IN (?, ?)').run(meetingId, T['Rehearsal with supervisor'], T['Proofread full report']);
+  act(U.aina, P.demo, null, 'meeting.started', 'started the meeting “Weekly progress check”', ago(3));
+  act(U.aina, P.demo, null, 'meeting.ended', 'ended the meeting “Weekly progress check”', ago(3, -0.75));
+
   // Aina has read everything up to yesterday, so today's messages show as unread.
   const markRead = db.prepare('INSERT INTO channel_reads (user_id, channel_id, last_read_id) VALUES (?, ?, ?)');
   const readUpTo = (channel) => db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM messages WHERE channel_id = ? AND created_at < datetime('now', '-12 hours')").get(channel).id;

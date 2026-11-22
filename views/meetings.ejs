@@ -1,0 +1,69 @@
+<%- include('partials/head') %>
+<main class="page">
+  <div class="page-head">
+    <div>
+      <h1>Meetings</h1>
+      <p class="muted">Video calls for the team. Write the minutes together and turn action items into tasks.</p>
+    </div>
+  </div>
+
+  <form method="post" action="/meetings" class="card meeting-start">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <label>Meeting title <span class="optional">optional</span>
+      <input name="title" maxlength="120" placeholder="e.g. Weekly progress check">
+    </label>
+    <label>Project <span class="optional">optional</span>
+      <select name="project_id">
+        <option value="">Whole team</option>
+        <% for (const p of projects) { %><option value="<%= p.id %>"><%= p.name %></option><% } %>
+      </select>
+    </label>
+    <button class="btn btn-primary" type="submit"><%- icon('video', 16) %> Start meeting</button>
+  </form>
+
+  <section class="meeting-section" aria-labelledby="live-heading">
+    <div class="section-head"><h2 id="live-heading">Live now</h2></div>
+    <% if (!live.length) { %>
+      <div class="empty"><p>No meeting is running. Start one above and everyone in the workspace is notified.</p></div>
+    <% } else { %>
+    <ul class="meeting-cards">
+      <% for (const m of live) { %>
+      <li class="card meeting-card">
+        <span class="live-pill"><span class="live-dot" aria-hidden="true"></span>Live</span>
+        <a class="meeting-card-title" href="/meetings/<%= m.id %>"><%= m.title %></a>
+        <span class="small muted">
+          <% if (m.project_name) { %><span class="dot" style="background: <%= m.project_color %>" aria-hidden="true"></span> <%= m.project_name %> · <% } %>
+          Started by <%= m.starter_name || 'a former member' %> · <%= m.minutes %> min ago
+        </span>
+        <a class="btn btn-primary btn-sm" href="/meetings/<%= m.id %>">Open</a>
+      </li>
+      <% } %>
+    </ul>
+    <% } %>
+  </section>
+
+  <section class="meeting-section" aria-labelledby="past-heading">
+    <div class="section-head"><h2 id="past-heading">Past meetings</h2></div>
+    <% if (!past.length) { %>
+      <div class="empty"><p>Ended meetings appear here with their minutes and the tasks they created.</p></div>
+    <% } else { %>
+    <div class="card card-flush table-wrap">
+      <table class="table">
+        <thead><tr><th>Meeting</th><th>Project</th><th>Date</th><th class="num">Length</th><th class="num">Tasks</th></tr></thead>
+        <tbody>
+          <% for (const m of past) { %>
+          <tr>
+            <td><a href="/meetings/<%= m.id %>"><%= m.title %></a></td>
+            <td><% if (m.project_name) { %><span class="dot" style="background: <%= m.project_color %>" aria-hidden="true"></span> <%= m.project_name %><% } else { %><span class="muted">Whole team</span><% } %></td>
+            <td><%= fmtDate(m.created_at) %></td>
+            <td class="num"><%= m.minutes %> min</td>
+            <td class="num"><%= m.task_count %></td>
+          </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </section>
+</main>
+<%- include('partials/foot') %>

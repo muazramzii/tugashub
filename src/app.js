@@ -44,6 +44,7 @@ Object.assign(app.locals, {
   path: '',
   query: {},
   chatUnread: 0,
+  liveMeetings: [],
   PLANS,
   ROLE_LABELS,
   formatLimit,
@@ -101,6 +102,7 @@ app.get('/', (req, res) => {
 app.use(require('./routes/auth').router);
 app.use(require('./routes/feed').router);
 app.use(require('./routes/chat').router);
+app.use(require('./routes/meetings').router);
 app.use(require('./routes/views').router); // before tasks: owns /tasks and /tasks/export.csv
 app.use(require('./routes/projects').router);
 app.use(require('./routes/tasks').router);

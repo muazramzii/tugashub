@@ -277,7 +277,7 @@ test('every main page renders for a logged-in user', async () => {
   const projectId = await newProject(c, 'Smoke');
   const task = await newTask(c, projectId, { title: 'Smoke task', due_date: '2026-01-15' });
   for (const url of ['/dashboard', '/tasks', '/calendar', '/calendar?month=2026-01', '/activity', '/notifications',
-    '/team', '/billing', '/settings', `/projects/${projectId}`, `/projects/${projectId}?priority=high`, `/tasks/${task.id}`]) {
+    '/team', '/billing', '/settings', '/meetings', `/projects/${projectId}`, `/projects/${projectId}?priority=high`, `/tasks/${task.id}`]) {
     const res = await c.get(url);
     assert.equal(res.status, 200, `${url} returned ${res.status}`);
   }
@@ -311,7 +311,7 @@ test('migration upgrades a version 1 database without losing data', () => {
     }));`], { cwd: path.join(__dirname, '..'), env: { ...process.env, DB_PATH: file } }).toString();
 
   const result = JSON.parse(out);
-  assert.equal(result.version, 3);
+  assert.equal(result.version, 4);
   assert.deepEqual({ ...result.task }, { title: 'Old done task', assignee_id: 1, has_completed: 1 });
   assert.equal(result.role, 'admin');
 });
@@ -444,4 +444,70 @@ test('realtime: removing a member disconnects their open tabs', async () => {
   const gone = once(sock, 'disconnect');
   await owner.post(`/team/${m.id}/remove`);
   assert.equal(await gone, 'io server disconnect');
+});
+
+test('meetings: starting one notifies the team; action items become linked tasks', async () => {
+  const owner = new Client();
+  const olivia = await owner.signup('Mona Owner', 'mona-meet@test.test', { workspace: 'Meet Co' });
+  const invite = db.prepare('SELECT invite_code FROM workspaces WHERE id = ?').get(olivia.workspace_id).invite_code;
+  const member = new Client();
+  const max = await member.signup('Max Member', 'max-meet@test.test', { invite });
+  const projectId = await newProject(owner, 'Launch');
+
+  // Start a meeting from the project; the teammate is notified with a link to it.
+  const started = await owner.post('/meetings', { project_id: projectId, title: 'Kickoff <b>call</b>' });
+  assert.equal(started.status, 302);
+  const meetingId = idFrom(started);
+  const meeting = db.prepare('SELECT * FROM meetings WHERE id = ?').get(meetingId);
+  assert.equal(meeting.project_id, projectId);
+  assert.match(meeting.room, /^tugashub-[0-9a-f]{20}$/);
+  const note = db.prepare("SELECT * FROM notifications WHERE user_id = ? AND kind = 'meeting'").get(max.id);
+  assert.equal(note.url, `/meetings/${meetingId}`);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND kind = 'meeting'").get(olivia.id).n, 0);
+
+  // The page escapes the title, links to the Jitsi room, and shows on the dashboard while live.
+  const page = await member.get(`/meetings/${meetingId}`);
+  assert.equal(page.status, 200);
+  assert.match(page.body_, /Kickoff &lt;b&gt;call&lt;\/b&gt;/);
+  assert.ok(page.body_.includes(`https://meet.jit.si/${meeting.room}`));
+  assert.match((await member.get('/dashboard')).body_, /is happening now/);
+
+  // Shared minutes.
+  await member.post(`/meetings/${meetingId}/notes`, { notes: 'Decided to ship on Friday.' });
+  assert.equal(db.prepare('SELECT notes_updated_by FROM meetings WHERE id = ?').get(meetingId).notes_updated_by, max.id);
+
+  // An action item becomes a task on the board, assigned and linked back.
+  await member.post(`/meetings/${meetingId}/tasks`, { title: 'Write release notes', project_id: projectId, assignee_id: olivia.id, due_date: '2026-12-01' });
+  const task = db.prepare('SELECT * FROM tasks WHERE meeting_id = ?').get(meetingId);
+  assert.equal(task.title, 'Write release notes');
+  assert.equal(task.project_id, projectId);
+  assert.equal(task.assignee_id, olivia.id);
+  assert.equal(task.status, 'todo');
+  assert.ok(db.prepare("SELECT 1 FROM notifications WHERE user_id = ? AND task_id = ? AND kind = 'assigned'").get(olivia.id, task.id));
+  assert.match((await owner.get(`/tasks/${task.id}`)).body_, new RegExp(`href="/meetings/${meetingId}"`));
+
+  // A plain member cannot end someone else's meeting; the person who started it can.
+  assert.equal((await member.post(`/meetings/${meetingId}/end`)).status, 403);
+  await owner.post(`/meetings/${meetingId}/end`);
+  assert.ok(db.prepare('SELECT ended_at FROM meetings WHERE id = ?').get(meetingId).ended_at);
+  const ended = await owner.get('/meetings');
+  assert.match(ended.body_, /No meeting is running/);
+  assert.doesNotMatch((await owner.get(`/meetings/${meetingId}`)).body_, /Join video call/);
+});
+
+test('meetings: other workspaces cannot see or use them', async () => {
+  const a = new Client();
+  await a.signup('Alpha Owner', 'alpha-meet@test.test', { workspace: 'Alpha Meet' });
+  const meetingId = idFrom(await a.post('/meetings', { title: 'Private sync' }));
+  const b = new Client();
+  await b.signup('Beta Owner', 'beta-meet@test.test', { workspace: 'Beta Meet' });
+  const bProject = await newProject(b, 'Beta board');
+  assert.equal((await b.get(`/meetings/${meetingId}`)).status, 404);
+  assert.equal((await b.post(`/meetings/${meetingId}/notes`, { notes: 'hijack' })).status, 404);
+  assert.equal((await b.post(`/meetings/${meetingId}/tasks`, { title: 'x', project_id: bProject })).status, 404);
+  assert.doesNotMatch((await b.get('/meetings')).body_, /Private sync/);
+  // Nor can a meeting be started on another workspace's project.
+  const aProject = await newProject(a, 'Alpha board');
+  await b.post('/meetings', { project_id: aProject });
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM meetings WHERE project_id = ?').get(aProject).n, 0);
 });

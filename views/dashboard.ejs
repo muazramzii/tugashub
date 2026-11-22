@@ -7,6 +7,14 @@
     </div>
   </div>
 
+  <% for (const m of liveMeetings) { %>
+  <div class="card live-banner" role="status">
+    <span class="live-pill"><span class="live-dot" aria-hidden="true"></span>Live</span>
+    <span class="live-banner-text"><strong><%= m.title %></strong> is happening now.</span>
+    <a class="btn btn-primary btn-sm" href="/meetings/<%= m.id %>"><%- icon('video', 15) %> Join</a>
+  </div>
+  <% } %>
+
   <section class="stats" aria-label="Workspace summary">
     <a class="stat" href="/tasks?status=open"><span class="stat-label">Open tasks</span><span class="stat-value"><%= stats.total - stats.done %></span></a>
     <a class="stat" href="/tasks?status=doing"><span class="stat-label">In progress</span><span class="stat-value"><%= stats.doing %></span></a>

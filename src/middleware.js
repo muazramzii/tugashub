@@ -10,6 +10,8 @@ const findUser = db.prepare(`
   FROM users u JOIN workspaces w ON w.id = u.workspace_id
   WHERE u.id = ?
 `);
+const liveMeetings = db.prepare(`
+  SELECT id, title FROM meetings WHERE workspace_id = ? AND ended_at IS NULL ORDER BY id DESC`);
 const unreadCount = db.prepare('SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND read_at IS NULL');
 const sidebarProjects = db.prepare(`
   SELECT id, name, color FROM projects
@@ -32,6 +34,7 @@ function loadUser(req, res, next) {
       res.locals.unread = unreadCount.get(row.id).n;
       res.locals.chatUnread = unreadTotal(row);
       res.locals.navProjects = sidebarProjects.all(row.workspace_id);
+      res.locals.liveMeetings = liveMeetings.all(row.workspace_id);
     } else {
       req.session = null; // user was deleted
     }

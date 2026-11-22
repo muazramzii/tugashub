@@ -27,6 +27,8 @@ Teams sign up, get their own workspace, invite members with a link, and run proj
 | Activity log | Every change is recorded: per task, per project, and workspace-wide with day grouping. |
 | Team chat | Real-time chat (Socket.IO): #general, one channel per project, and private direct messages. Typing indicator, online status, unread badges, @mentions. |
 | Live board | When a teammate changes a board, everyone viewing it sees the update instantly. |
+| Video meetings | Start a call for the team or a project; everyone is notified and a "Live" banner shows on the dashboard. The call runs on [Jitsi Meet](https://jitsi.org/) in a new tab. |
+| Meeting minutes | Shared minutes on the meeting page, plus action items that become tasks on a board, assigned and linked back to the meeting. |
 
 ### Analytics and admin
 | Feature | What it does |
@@ -42,7 +44,7 @@ Teams sign up, get their own workspace, invite members with a link, and run proj
 - **Security:** bcrypt passwords, CSRF tokens on every form and API call, signed HTTP-only cookies, HTML-escaped user content, CSV formula-injection protection.
 - **Database migrations:** versioned with `PRAGMA user_version`, so existing databases upgrade automatically and safely.
 - **Real-time:** Socket.IO pushes chat messages, presence, notifications and board changes. Sockets only receive; every change still goes through a checked HTTP route.
-- **Automated tests:** 17 end-to-end tests that boot the real app on a throwaway database (`npm test`).
+- **Automated tests:** 19 end-to-end tests that boot the real app on a throwaway database (`npm test`).
 - **Accessible, responsive UI:** keyboard-usable controls, light and dark mode, works on phones, no JavaScript framework.
 
 ## How it works
@@ -205,6 +207,8 @@ erDiagram
   CHANNELS ||--o{ MESSAGES : contains
   USERS ||--o{ MESSAGES : sends
   CHANNELS ||--o{ CHANNEL_READS : "read position"
+  WORKSPACES ||--o{ MEETINGS : holds
+  MEETINGS |o--o{ TASKS : "action items"
   USERS ||--o{ CHANNEL_READS : tracks
 
   WORKSPACES {
@@ -246,6 +250,14 @@ erDiagram
     int channel_id FK
     int user_id FK
     string body
+  }
+  MEETINGS {
+    int id PK
+    int workspace_id FK
+    int project_id FK
+    string room "Jitsi room name"
+    string notes "shared minutes"
+    datetime ended_at
   }
 ```
 
@@ -293,6 +305,7 @@ TugasHub needs a host that keeps a **server running** (for live chat) and gives 
    | `DB_PATH` | `/data/app.db` | Keeps the database on the volume |
    | `SESSION_SECRET` | a long random string | Keeps people logged in across redeploys |
    | `SEED_DEMO` | `1` (optional) | Fills an empty database with the demo team on first start |
+   | `JITSI_URL` | e.g. `https://meet.jit.si` (optional) | Jitsi server for video meetings. Defaults to the public meet.jit.si |
 
 4. Set the health check path to `/health`.
 5. Generate a domain, or add your own (below).
@@ -357,7 +370,7 @@ workspaces      (id, name, plan, invite_code, created_at)
 users           (id, workspace_id, name, email, password_hash, role, created_at)
 projects        (id, workspace_id, name, description, color, archived_at, created_at)
 tasks           (id, project_id, title, description, status, priority, assignee_id,
-                 created_by, due_date, position, completed_at, created_at)
+                 created_by, due_date, position, completed_at, meeting_id, created_at)
 labels          (id, workspace_id, name, color)
 task_labels     (task_id, label_id)
 checklist_items (id, task_id, text, done, position, created_at)
@@ -368,6 +381,8 @@ billing_events  (id, workspace_id, action, plan, amount, created_at)
 channels        (id, workspace_id, kind, name, project_id, user_a, user_b, created_at)
 messages        (id, channel_id, user_id, body, created_at)
 channel_reads   (user_id, channel_id, last_read_id)
+meetings        (id, workspace_id, project_id, title, room, started_by, notes,
+                 notes_updated_by, notes_updated_at, created_at, ended_at)
 ```
 
 Deleting a workspace, project or task cascades to its children. Removing a member leaves their tasks unassigned and keeps their comments and history.

@@ -724,6 +724,40 @@ a.toast:hover { color: var(--bg); text-decoration: underline; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; transition: none; } }
 
+/* ---------- Meetings ---------- */
+.nav-live {
+  margin-left: auto; font-size: 0.68rem; font-weight: 700; padding: 1px 7px; border-radius: 99px;
+  background: var(--danger-soft); color: var(--danger);
+}
+.live-pill, .ended-pill {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 700;
+  padding: 2px 9px; border-radius: 99px; margin-right: 6px; vertical-align: 1px;
+}
+.live-pill { background: var(--danger-soft); color: var(--danger); }
+.ended-pill { background: var(--surface-3); color: var(--ink-2); }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: live-pulse 1.6s ease-in-out infinite; }
+@keyframes live-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+.meeting-start { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 14px; align-items: end; margin-bottom: 28px; }
+.meeting-section { margin-bottom: 28px; }
+.meeting-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.meeting-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "pill title btn" "pill meta btn"; column-gap: 14px; row-gap: 2px; align-items: center; padding: 14px 18px; }
+.meeting-card .live-pill { grid-area: pill; }
+.meeting-card-title { grid-area: title; font-weight: 600; color: var(--ink); text-decoration: none; }
+.meeting-card-title:hover { text-decoration: underline; }
+.meeting-card > .small { grid-area: meta; }
+.meeting-card > .btn { grid-area: btn; }
+.meeting-join { margin-bottom: 20px; }
+.meeting-join p { margin: 0 0 10px; }
+#notes { min-height: 320px; line-height: 1.55; }
+.side-heading { margin: 0 0 10px; }
+.meeting-tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.meeting-tasks li { display: flex; flex-direction: column; gap: 2px; }
+.meeting-tasks a { color: var(--ink); text-decoration: none; font-weight: 500; font-size: 0.9rem; }
+.meeting-tasks a:hover { text-decoration: underline; }
+.live-banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.live-banner .live-banner-text { flex: 1; min-width: 200px; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1180px) {
   .dash-grid { grid-template-columns: 1fr; }
@@ -794,6 +828,9 @@ a.toast:hover { color: var(--bg); text-decoration: underline; }
   .hero-board { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 8px; gap: 6px; }
   .menu-panel { position: fixed; left: 16px; right: 16px; top: 76px; width: auto; }
   .copy-row { flex-direction: column; }
+  .meeting-start { grid-template-columns: 1fr; }
+  .meeting-card { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "pill btn" "title btn" "meta meta"; }
+  .meeting-card .live-pill { justify-self: start; }
   .filter-search { max-width: none; flex-basis: 100%; }
   .filter-bar label:not(.filter-search) { flex: 1 1 calc(50% - 4px); }
   .filter-bar select { width: 100%; }

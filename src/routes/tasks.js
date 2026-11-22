@@ -15,8 +15,9 @@ const q = {
   project: db.prepare('SELECT * FROM projects WHERE id = ? AND workspace_id = ?'),
   task: db.prepare(`
     SELECT t.*, p.workspace_id, p.name AS project_name, p.color AS project_color,
-           a.name AS assignee_name, c.name AS creator_name
+           a.name AS assignee_name, c.name AS creator_name, mt.title AS meeting_title
     FROM tasks t JOIN projects p ON p.id = t.project_id
+    LEFT JOIN meetings mt ON mt.id = t.meeting_id
     LEFT JOIN users a ON a.id = t.assignee_id
     LEFT JOIN users c ON c.id = t.created_by
     WHERE t.id = ? AND p.workspace_id = ?`),

@@ -4,6 +4,7 @@
     <a href="/projects/<%= task.project_id %>"><span class="dot" style="background: <%= task.project_color %>" aria-hidden="true"></span><%= task.project_name %></a>
     <span aria-hidden="true">/</span>
     <span>Task #<%= task.id %></span>
+    <% if (task.meeting_id) { %><span aria-hidden="true">·</span><a href="/meetings/<%= task.meeting_id %>"><%- icon('video', 15) %> From <%= task.meeting_title %></a><% } %>
   </nav>
 
   <% if (error) { %><div class="alert alert-error" role="alert"><%= error %></div><% } %>

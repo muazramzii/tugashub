@@ -35,6 +35,7 @@
       <%- navItem('/calendar', 'Calendar', 'calendar', path === '/calendar') %>
       <%- navItem('/reports', 'Reports', 'chart', path === '/reports', plan.reports ? '' : '<span class="nav-pro">Pro</span>') %>
       <%- navItem('/chat', 'Chat', 'comment', path.startsWith('/chat'), `<span class="nav-badge" data-chat-badge${chatUnread ? '' : ' hidden'}>${chatUnread}</span>`) %>
+      <%- navItem('/meetings', 'Meetings', 'video', path.startsWith('/meetings'), liveMeetings.length ? `<span class="nav-live" title="${liveMeetings.length} live now">${liveMeetings.length} live</span>` : '') %>
       <%- navItem('/activity', 'Activity', 'activity', path === '/activity') %>
     </nav>
     <div class="nav-section">

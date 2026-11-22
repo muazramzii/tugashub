@@ -194,6 +194,26 @@ const migrations = [
 
   ALTER TABLE notifications ADD COLUMN url TEXT;
   `,
+
+  // v4: video meetings (Jitsi rooms) with shared minutes; action items become tasks.
+  `
+  CREATE TABLE meetings (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id     INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    project_id       INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+    title            TEXT NOT NULL,
+    room             TEXT NOT NULL UNIQUE,
+    started_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    notes            TEXT NOT NULL DEFAULT '',
+    notes_updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    notes_updated_at TEXT,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    ended_at         TEXT
+  );
+  CREATE INDEX idx_meetings_workspace ON meetings(workspace_id, id DESC);
+
+  ALTER TABLE tasks ADD COLUMN meeting_id INTEGER REFERENCES meetings(id) ON DELETE SET NULL;
+  `,
 ];
 
 function migrate() {

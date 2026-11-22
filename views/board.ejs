@@ -19,6 +19,13 @@
     </div>
     <div class="page-actions">
       <button class="btn btn-primary" type="button" data-open="new-task"><%- icon('plus', 16) %> Add task</button>
+      <% if (!project.archived_at) { %>
+      <form method="post" action="/meetings">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <input type="hidden" name="project_id" value="<%= project.id %>">
+        <button class="btn btn-ghost" type="submit"><%- icon('video', 16) %> Start meeting</button>
+      </form>
+      <% } %>
       <details class="menu">
         <summary class="btn btn-ghost">Project settings</summary>
         <div class="menu-panel card">
